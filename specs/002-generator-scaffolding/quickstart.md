@@ -312,37 +312,40 @@ ls -la generator/src/main/resources/aspnet-minimalapi/
 
 ## Step 7: Build Generator
 
-Build the generator JAR using Maven:
+Build the generator JAR using Maven via devbox:
 
 ```bash
 cd ~/scratch/git/minimal-api-gen/generator
 
-# Clean and build
+# Clean and build (MUST use devbox wrapper)
 devbox run mvn clean package
 
 # Verify JAR created
 ls -la target/
-# Expected: openapi-generator-minimalapi-1.0.0.jar
+# Expected: aspnet-minimalapi-openapi-generator-1.0.0.jar
 ```
 
 **Expected Output**: BUILD SUCCESS in <2 minutes
 
+**⚠️ Important**: Always use `devbox run mvn` instead of direct `mvn` commands
+
 **Validation**:
 - [ ] Build completes without errors
-- [ ] `target/openapi-generator-minimalapi-1.0.0.jar` exists
-- [ ] JAR size >10MB (indicates templates bundled)
+- [ ] `target/aspnet-minimalapi-openapi-generator-1.0.0.jar` exists
+- [ ] JAR size ~20KB (custom generator artifact)
 
 ---
 
 ## Step 8: Verify Generator Discovery
 
-Test that the generator is discoverable via ServiceLoader:
+Test that the generator is discoverable by using classpath with OpenAPI Generator CLI:
 
 ```bash
 cd ~/scratch/git/minimal-api-gen/generator
 
-# List available generators
-java -jar target/openapi-generator-minimalapi-1.0.0.jar list
+# List available generators using classpath
+java -cp "target/aspnet-minimalapi-openapi-generator-1.0.0.jar:~/scratch/git/openapi-generator3/modules/openapi-generator-cli/target/openapi-generator-cli.jar" \
+  org.openapitools.codegen.OpenAPIGenerator list
 
 # Expected output should include:
 # CLIENT generators:
@@ -352,6 +355,8 @@ java -jar target/openapi-generator-minimalapi-1.0.0.jar list
 #   - aspnetcore-minimalapi
 # ...
 ```
+
+**Note**: Custom generators require classpath inclusion with OpenAPI Generator CLI JAR
 
 **Validation**:
 - [ ] Command executes without errors
@@ -366,15 +371,16 @@ Generate a complete ASP.NET Core project from a sample OpenAPI spec:
 ```bash
 cd ~/scratch/git/minimal-api-gen/generator
 
-# Generate from petstore.yaml (use sample spec from OpenAPI Generator)
-java -jar target/openapi-generator-minimalapi-1.0.0.jar generate \
+# Generate from petstore.yaml using classpath
+java -cp "target/aspnet-minimalapi-openapi-generator-1.0.0.jar:~/scratch/git/openapi-generator3/modules/openapi-generator-cli/target/openapi-generator-cli.jar" \
+  org.openapitools.codegen.OpenAPIGenerator generate \
   -g aspnetcore-minimalapi \
   -i ~/scratch/git/openapi-generator3/modules/openapi-generator/src/test/resources/3_0/petstore.yaml \
-  -o /tmp/test-output \
+  -o /tmp/test-minimalapi \
   --additional-properties=packageName=PetstoreApi
 
 # Verify generated structure
-ls -la /tmp/test-output/
+ls -la /tmp/test-minimalapi/
 # Expected: Program.cs, PetstoreApi.csproj, PetstoreApi.sln, Models/, Features/
 ```
 
@@ -401,17 +407,17 @@ ls -la /tmp/test-output/
 Compile the generated project to ensure templates produce valid C#:
 
 ```bash
-cd /tmp/test-output
-
-# Build generated project
-devbox run dotnet build
+# Build generated project (MUST use devbox wrapper)
+cd /tmp/test-minimalapi && devbox run dotnet build
 
 # Expected output: Build succeeded. 0 Warning(s), 0 Error(s)
 ```
 
+**⚠️ Important**: Always use `devbox run dotnet` instead of direct `dotnet` commands
+
 **Validation**:
 - [ ] Build completes without errors
-- [ ] bin/ directory created with compiled assemblies
+- [ ] bin/ directory created at /tmp/test-minimalapi/src/PetstoreApi/bin/
 - [ ] No compiler warnings or errors
 
 ---

@@ -17,7 +17,10 @@ tests/
 
 ## Commands
 
-# Add commands for Java (OpenAPI Generator codebase) - version detection needed from repository
+⚠️ **CRITICAL**: All build tools MUST be run via devbox wrapper:
+- Maven: `devbox run mvn` (never direct `mvn`)
+- dotnet: `devbox run dotnet` (never direct `dotnet`)
+- Example: `cd /path/to/project && devbox run dotnet build`
 
 ## Code Style
 
