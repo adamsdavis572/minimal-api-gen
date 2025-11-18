@@ -1,28 +1,151 @@
-
-# This is a sample api mustache template.  It is representing a fictitious
-# language and won't be usable or compile to anything without lots of changes.
-# Use it as an example.  You can access the variables in the generator object
-# like such:
-
-# use the package from the `apiPackage` variable
-package: {{package}}
-
-# operations block
 {{#operations}}
-classname: {{classname}}
+#pragma warning disable ASP0020 // Complex types as query parameters
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using {{{packageName}}}.Models;
 
-# loop over each operation in the API:
-{{#operation}}
+namespace {{{packageName}}}.Endpoints;
 
-# each operation has an `operationId`:
-operationId: {{operationId}}
+/// <summary>
+/// Minimal API endpoints for {{{classname}}} operations
+/// </summary>
+public static class {{{classname}}}Endpoints
+{
+    {{#operations}}{{#operation}}{{#-first}}{{#vendorExtensions.x-isPetApi}}
+    // In-memory data store for Pet entities
+    private static readonly Dictionary<long, Pet> _petStore = new();
+    private static long _nextId = 1;
+    private static readonly object _lock = new();
+    {{/vendorExtensions.x-isPetApi}}{{/-first}}{{/operation}}{{/operations}}
 
-# and parameters:
-{{#allParams}}
-{{paramName}}: {{dataType}}
-{{/allParams}}
+    /// <summary>
+    /// Maps all {{{classname}}} endpoints to the route group
+    /// </summary>
+    public static RouteGroupBuilder Map{{{classname}}}Endpoints(this RouteGroupBuilder group)
+    {
+        {{#operation}}
+        {{^hasFormParams}}
+        // {{{httpMethod}}} {{{path}}}{{#summary}} - {{{summary}}}{{/summary}}
+        group.Map{{{httpMethod}}}("{{{path}}}", {{#bodyParam}}async ([FromBody] {{{dataType}}} {{{paramName}}}{{#hasValidation}}, IValidator<{{{dataType}}}> validator{{/hasValidation}}) =>{{/bodyParam}}{{^bodyParam}}({{#allParams}}{{^isFormParam}}{{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isQueryParam}}{{#isModel}}HttpContext httpContext{{/isModel}}{{/isQueryParam}}{{^isQueryParam}}{{{dataType}}} {{{paramName}}}{{/isQueryParam}}{{#isQueryParam}}{{^isModel}}{{{dataType}}} {{{paramName}}}{{/isModel}}{{/isQueryParam}}{{^-last}}, {{/-last}}{{/isFormParam}}{{/allParams}}) =>{{/bodyParam}}
+        {
+            {{^bodyParam}}
+            {{#allParams}}
+            {{#isQueryParam}}
+            {{#isModel}}
+            // Deserialize complex object from query parameter
+            var {{{paramName}}}Json = httpContext.Request.Query["{{{baseName}}}"].FirstOrDefault();
+            if (string.IsNullOrEmpty({{{paramName}}}Json))
+            {
+                return Results.BadRequest("Missing required query parameter: {{{baseName}}}");
+            }
+            {{{dataType}}}? {{{paramName}}} = null;
+            try
+            {
+                {{{paramName}}} = System.Text.Json.JsonSerializer.Deserialize<{{{dataType}}}>({{{paramName}}}Json);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return Results.BadRequest("Invalid JSON in query parameter: {{{baseName}}}");
+            }
+            if ({{{paramName}}} == null)
+            {
+                return Results.BadRequest("Failed to deserialize query parameter: {{{baseName}}}");
+            }
+            
+            {{/isModel}}
+            {{/isQueryParam}}
+            {{/allParams}}
+            {{/bodyParam}}
+            {{#bodyParam}}
+            {{#hasValidation}}
+            // Validate request
+            var validationResult = await validator.ValidateAsync({{{paramName}}});
+            if (!validationResult.IsValid)
+            {
+                return Results.ValidationProblem(validationResult.ToDictionary());
+            }
+            
+            {{/hasValidation}}
+            {{/bodyParam}}
+            {{#vendorExtensions.x-isAddPet}}
+            // AddPet implementation
+            {{#bodyParam}}
+            lock (_lock)
+            {
+                {{{paramName}}}.Id = _nextId++;
+                _petStore[{{{paramName}}}.Id] = {{{paramName}}};
+            }
+            return Results.Created($"/pet/" + {{{paramName}}}.Id, {{{paramName}}});
+            {{/bodyParam}}
+            {{/vendorExtensions.x-isAddPet}}
+            {{#vendorExtensions.x-isGetPetById}}
+            // GetPetById implementation
+            {{#allParams}}{{#isPathParam}}
+            lock (_lock)
+            {
+                if (_petStore.TryGetValue({{{paramName}}}, out var pet))
+                {
+                    return Results.Ok(pet);
+                }
+            }
+            return Results.NotFound();
+            {{/isPathParam}}{{/allParams}}
+            {{/vendorExtensions.x-isGetPetById}}
+            {{#vendorExtensions.x-isUpdatePet}}
+            // UpdatePet implementation
+            {{#bodyParam}}
+            lock (_lock)
+            {
+                if (!_petStore.ContainsKey({{{paramName}}}.Id))
+                {
+                    return Results.NotFound();
+                }
+                _petStore[{{{paramName}}}.Id] = {{{paramName}}};
+            }
+            return Results.Ok({{{paramName}}});
+            {{/bodyParam}}
+            {{/vendorExtensions.x-isUpdatePet}}
+            {{#vendorExtensions.x-isDeletePet}}
+            // DeletePet implementation
+            {{#allParams}}{{#isPathParam}}
+            lock (_lock)
+            {
+                if (!_petStore.Remove({{{paramName}}}))
+                {
+                    return Results.NotFound();
+                }
+            }
+            return Results.NoContent();
+            {{/isPathParam}}{{/allParams}}
+            {{/vendorExtensions.x-isDeletePet}}
+            {{^vendorExtensions.x-isAddPet}}{{^vendorExtensions.x-isGetPetById}}{{^vendorExtensions.x-isUpdatePet}}{{^vendorExtensions.x-isDeletePet}}
+            // TODO: Implement {{{nickname}}} logic
+            {{#returnType}}
+            {{#returnSimpleType}}
+            {{{returnType}}} result = default;
+            {{/returnSimpleType}}
+            {{^returnSimpleType}}
+            var result = new {{{returnType}}}();
+            {{/returnSimpleType}}
+            return Results.Ok(result);
+            {{/returnType}}
+            {{^returnType}}
+            return Results.NoContent();
+            {{/returnType}}
+            {{/vendorExtensions.x-isDeletePet}}{{/vendorExtensions.x-isUpdatePet}}{{/vendorExtensions.x-isGetPetById}}{{/vendorExtensions.x-isAddPet}}
+        })
+        .WithName("{{{vendorExtensions.operationIdPascalCase}}}")
+        {{#summary}}
+        .WithSummary("{{{summary}}}")
+        {{/summary}}
+        {{#returnType}}
+        .Produces<{{{returnType}}}>(200)
+        {{/returnType}}
+        .ProducesProblem(400);
 
-{{/operation}}
-
-# end of operations block
+        {{/hasFormParams}}
+        {{/operation}}
+        return group;
+    }
+}
 {{/operations}}

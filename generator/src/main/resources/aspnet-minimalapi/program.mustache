@@ -1,45 +1,58 @@
-using FastEndpoints;{{#useAuthentication}}
-using FastEndpoints.Security;{{/useAuthentication}}
-using FastEndpoints.Swagger;
+using FluentValidation;
+using {{packageName}}.Extensions;{{#useAuthentication}}
+using Microsoft.AspNetCore.Authentication.JwtBearer;{{/useAuthentication}}
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    {{#useAuthentication}}.AddAuthenticationJwtBearer(s => s.SigningKey = "The secret used to sign tokens") //TODO set the signing key
-    .AddAuthorization(){{/useAuthentication}}
-    .AddFastEndpoints()
-    .SwaggerDocument(o =>
+// Add services to the container
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("{{{version}}}{{^version}}v1{{/version}}", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        o.DocumentSettings = s =>
-        {
-            s.DocumentName = "{{{appName}}}{{^appName}}{{packageName}}{{/appName}}";
-            s.Title = "{{{appName}}}{{^appName}}{{packageName}}{{/appName}}";
-            s.Description = """
-{{{packageDescription}}}
-""";
-            s.Version = "{{{version}}}{{^version}}v1{{/version}}";
-        };
-        o.AutoTagPathSegmentIndex = 0;
-    })
-    {{#useResponseCaching}}.AddResponseCaching(){{/useResponseCaching}}
-;
+        Title = "{{{appName}}}{{^appName}}{{packageName}}{{/appName}}",
+        Description = "{{{packageDescription}}}",
+        Version = "{{{version}}}{{^version}}v1{{/version}}"
+    });
+});
+{{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();{{#useAuthentication}}
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["Auth:Authority"];
+        options.Audience = builder.Configuration["Auth:Audience"];
+    });
+builder.Services.AddAuthorization();{{/useAuthentication}}{{#useResponseCaching}}
+builder.Services.AddResponseCaching();{{/useResponseCaching}}
 
 var app = builder.Build();
 
-app
-    {{#useAuthentication}}.UseAuthentication()
-    .UseAuthorization(){{/useAuthentication}}{{#useResponseCaching}}
-    .UseResponseCaching(){{/useResponseCaching}}
-    .UseFastEndpoints(x =>
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
     {
-        {{#useProblemDetails}}x.Errors.UseProblemDetails();{{/useProblemDetails}}
-        {{#useApiVersioning}}
-        x.Endpoints.RoutePrefix = "{{routePrefix}}";
-        x.Versioning.Prefix = "{{versioningPrefix}}";
-        {{/useApiVersioning}}
-    })
-    .UseSwaggerGen();
+        c.SwaggerEndpoint("/{{{version}}}{{^version}}v1{{/version}}/swagger.json", "{{{appName}}}{{^appName}}{{packageName}}{{/appName}} {{{version}}}{{^version}}v1{{/version}}");
+    });
+}
 
 app.UseHttpsRedirection();
+app.UseRouting();{{#useAuthentication}}
+app.UseAuthentication();
+app.UseAuthorization();{{/useAuthentication}}{{#useResponseCaching}}
+app.UseResponseCaching();{{/useResponseCaching}}
+
+{{#useApiVersioning}}
+var {{routePrefix}}Group = app.MapGroup("/{{routePrefix}}");
+{{routePrefix}}Group.MapAllEndpoints();
+{{/useApiVersioning}}
+{{^useApiVersioning}}
+app.MapAllEndpoints();
+{{/useApiVersioning}}
 
 app.Run();
+
+// Make Program accessible for testing
+public partial class Program { }

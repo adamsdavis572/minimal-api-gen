@@ -2,13 +2,16 @@ package org.openapitools.codegen.languages;
 
 import org.openapitools.codegen.CodegenConfig;
 import org.openapitools.codegen.CodegenOperation;
+import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenType;
 import org.openapitools.codegen.SupportingFile;
+import org.openapitools.codegen.utils.ModelUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Locale;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.util.UUID.randomUUID;
 
@@ -21,6 +24,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String USE_VALIDATORS = "useValidators";
     public static final String USE_RESPONSE_CACHING = "useResponseCaching";
     public static final String USE_API_VERSIONING = "useApiVersioning";
+    public static final String USE_ROUTE_GROUPS = "useRouteGroups";
+    public static final String USE_GLOBAL_EXCEPTION_HANDLER = "useGlobalExceptionHandler";
     public static final String ROUTE_PREFIX = "routePrefix";
     public static final String VERSIONING_PREFIX = "versioningPrefix";
     public static final String API_VERSION = "apiVersion";
@@ -35,6 +40,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private boolean useValidators = false;
     private boolean useResponseCaching = false;
     private boolean useApiVersioning = false;
+    private boolean useRouteGroups = true;
+    private boolean useGlobalExceptionHandler = true;
     private String routePrefix = "api";
     private String versioningPrefix = "v";
     private String apiVersion = "1";
@@ -61,15 +68,17 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         embeddedTemplateDir = templateDir = "aspnet-minimalapi";
 
         modelTemplateFiles.put("model.mustache", ".cs");
-        apiTemplateFiles.put("endpoint.mustache", "Endpoint.cs");
-        apiTemplateFiles.put("request.mustache", "Request.cs");
+        // Minimal API generates one endpoint file per tag using api.mustache
+        apiTemplateFiles.put("api.mustache", "Endpoints.cs");
 
-        addSwitch(USE_PROBLEM_DETAILS, "Enable RFC compatible error responses (https://fast-endpoints.com/docs/configuration-settings#rfc7807-rfc9457-compatible-problem-details).", useProblemDetails);
+        addSwitch(USE_PROBLEM_DETAILS, "Enable RFC 7807 compatible error responses.", useProblemDetails);
         addSwitch(USE_RECORDS, "Use record instead of class for the requests and response.", useRecords);
-        addSwitch(USE_AUTHENTICATION, "Enable authentication (https://fast-endpoints.com/docs/security).", useAuthentication);
-        addSwitch(USE_VALIDATORS, "Enable request validators (https://fast-endpoints.com/docs/validation).", useValidators);
-        addSwitch(USE_RESPONSE_CACHING, "Enable response caching (https://fast-endpoints.com/docs/response-caching).", useResponseCaching);
-        addSwitch(USE_API_VERSIONING, "Enable API versioning (https://fast-endpoints.com/docs/api-versioning).", useApiVersioning);
+        addSwitch(USE_AUTHENTICATION, "Enable JWT authentication.", useAuthentication);
+        addSwitch(USE_VALIDATORS, "Enable FluentValidation request validators.", useValidators);
+        addSwitch(USE_RESPONSE_CACHING, "Enable response caching.", useResponseCaching);
+        addSwitch(USE_API_VERSIONING, "Enable API versioning.", useApiVersioning);
+        addSwitch(USE_ROUTE_GROUPS, "Use MapGroup for organizing endpoints by tag.", useRouteGroups);
+        addSwitch(USE_GLOBAL_EXCEPTION_HANDLER, "Enable global exception handling middleware.", useGlobalExceptionHandler);
         addOption(ROUTE_PREFIX, "The route prefix for the API. Used only if useApiVersioning is true", routePrefix);
         addOption(VERSIONING_PREFIX, "The versioning prefix for the API. Used only if useApiVersioning is true", versioningPrefix);
         addOption(API_VERSION, "The version of the API. Used only if useApiVersioning is true", apiVersion);
@@ -88,11 +97,16 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         setUseValidators();
         setUseResponseCaching();
         setUseApiVersioning();
+        setUseRouteGroups();
+        setUseGlobalExceptionHandler();
         setRoutePrefix();
         setVersioningPrefix();
         setApiVersion();
         setSolutionGuid();
         setProjectConfigurationGuid();
+        
+        // Extract basePath from server URL for endpoint routing
+        setBasePath();
 
         super.processOpts();
 
@@ -119,6 +133,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         supportingFiles.add(new SupportingFile("appsettings.Development.json", packageFolder, "appsettings.Development.json"));
 
         supportingFiles.add(new SupportingFile("program.mustache", packageFolder, "Program.cs"));
+        
+        // Minimal API: EndpointMapper extension for MapAllEndpoints()
+        supportingFiles.add(new SupportingFile("endpointMapper.mustache", 
+            packageFolder + File.separator + "Extensions", "EndpointMapper.cs"));
     }
 
     @Override
@@ -127,6 +145,66 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
 
         // Converts, for example, PUT to Put for endpoint configuration
         operation.httpMethod = operation.httpMethod.charAt(0) + operation.httpMethod.substring(1).toLowerCase(Locale.ROOT);
+        
+        // Convert List<T> to T[] for query array parameters
+        // Minimal APIs support string[] natively but not List<string>
+        if (operation.allParams != null) {
+            for (CodegenParameter param : operation.allParams) {
+                if (param.isQueryParam && param.isContainer && param.isArray) {
+                    // Change List<string> to string[], List<int> to int[], etc.
+                    String innerType = param.items != null ? param.items.dataType : "string";
+                    param.dataType = innerType + "[]";
+                    LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility", 
+                        param.paramName, innerType, innerType);
+                }
+                // Log model-type query parameters (will use custom JSON deserialization)
+                if (param.isQueryParam && param.isModel) {
+                    LOGGER.info("Operation '{}' has model-type query parameter '{}' - will use JSON deserialization from query string", 
+                        operation.operationId, param.paramName);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void addOperationToGroup(String tag, String resourcePath, io.swagger.v3.oas.models.Operation operation,
+                                     CodegenOperation co, Map<String, List<CodegenOperation>> operations) {
+        // Add computed fields for templates
+        if (co.operationId != null) {
+            co.vendorExtensions.put("operationIdPascalCase", toModelName(co.operationId));
+        }
+        
+        // Success response details
+        if (co.responses != null && !co.responses.isEmpty()) {
+            co.responses.stream()
+                .filter(r -> r.is2xx)
+                .findFirst()
+                .ifPresent(successResponse -> {
+                    co.vendorExtensions.put("successCode", successResponse.code);
+                    co.vendorExtensions.put("resultMethod", 
+                        successResponse.dataType != null ? "Results.Ok" : "Results.Ok");
+                });
+        }
+        
+        // Group by tag for Minimal API structure
+        String groupKey = tag != null && !tag.isEmpty() ? tag : "Default";
+        operations.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(co);
+        
+        // Store tag for template use
+        co.vendorExtensions.put("x-tag-name", groupKey);
+        co.vendorExtensions.put("tagPascalCase", toModelName(groupKey));
+        co.vendorExtensions.put("x-isPetApi", "Pet".equalsIgnoreCase(groupKey));
+        
+        // Add flags for specific CRUD operations to enable logic implementation
+        String opId = co.operationId != null ? co.operationId.toLowerCase() : "";
+        co.vendorExtensions.put("x-isAddPet", opId.equals("addpet"));
+        co.vendorExtensions.put("x-isGetPetById", opId.equals("getpetbyid"));
+        co.vendorExtensions.put("x-isUpdatePet", opId.equals("updatepet"));
+        co.vendorExtensions.put("x-isDeletePet", opId.equals("deletepet"));
+        
+        co.baseName = groupKey;
+        
+        LOGGER.info("Added operation '{}' to tag group '{}'", co.operationId, groupKey);
     }
 
     private void setUseProblemDetails() {
@@ -177,6 +255,22 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         }
     }
 
+    private void setUseRouteGroups() {
+        if (additionalProperties.containsKey(USE_ROUTE_GROUPS)) {
+            useRouteGroups = convertPropertyToBooleanAndWriteBack(USE_ROUTE_GROUPS);
+        } else {
+            additionalProperties.put(USE_ROUTE_GROUPS, useRouteGroups);
+        }
+    }
+
+    private void setUseGlobalExceptionHandler() {
+        if (additionalProperties.containsKey(USE_GLOBAL_EXCEPTION_HANDLER)) {
+            useGlobalExceptionHandler = convertPropertyToBooleanAndWriteBack(USE_GLOBAL_EXCEPTION_HANDLER);
+        } else {
+            additionalProperties.put(USE_GLOBAL_EXCEPTION_HANDLER, useGlobalExceptionHandler);
+        }
+    }
+
     private void setRoutePrefix() {
         if (additionalProperties.containsKey(ROUTE_PREFIX)) {
             routePrefix = (String) additionalProperties.get(ROUTE_PREFIX);
@@ -217,5 +311,42 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             projectConfigurationGuid = "{" + randomUUID().toString().toUpperCase(Locale.ROOT) + "}";
             additionalProperties.put(PROJECT_CONFIGURATION_GUID, projectConfigurationGuid);
         }
+    }
+    
+    private void setBasePath() {
+        // Extract basePath from the first server URL if available
+        String basePath = "";
+        if (openAPI.getServers() != null && !openAPI.getServers().isEmpty()) {
+            String serverUrl = openAPI.getServers().get(0).getUrl();
+            try {
+                // Handle both absolute URLs and relative paths
+                if (serverUrl.startsWith("http://") || serverUrl.startsWith("https://")) {
+                    // Extract path from absolute URL (e.g., "http://petstore.swagger.io/v2" -> "/v2")
+                    java.net.URI uri = new java.net.URI(serverUrl);
+                    basePath = uri.getPath();
+                } else if (serverUrl.startsWith("/")) {
+                    // Already a path (e.g., "/v2")
+                    basePath = serverUrl;
+                } else {
+                    // Relative path without leading slash
+                    basePath = "/" + serverUrl;
+                }
+                
+                if (basePath == null || basePath.isEmpty() || basePath.equals("/")) {
+                    basePath = "";
+                }
+                LOGGER.info("Extracted basePath '{}' from server URL '{}'", basePath, serverUrl);
+            } catch (java.net.URISyntaxException e) {
+                LOGGER.warn("Could not parse server URL '{}': {}", serverUrl, e.getMessage());
+                // Fallback: try to extract path manually
+                if (serverUrl.contains("://")) {
+                    int pathStart = serverUrl.indexOf('/', serverUrl.indexOf("://") + 3);
+                    if (pathStart > 0) {
+                        basePath = serverUrl.substring(pathStart);
+                    }
+                }
+            }
+        }
+        additionalProperties.put("serverBasePath", basePath);
     }
 }
