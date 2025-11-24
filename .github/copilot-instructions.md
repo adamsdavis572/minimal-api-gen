@@ -27,6 +27,20 @@ tests/
 - dotnet: `devbox run dotnet` (never direct `dotnet`)
 - Example: `cd /path/to/project && devbox run dotnet build`
 - devbox is installed in ~/scratch/git/minimal-api-gen/generator
+
+### Running the Custom OpenAPI Generator
+
+**Build**: `cd generator && devbox run mvn clean package`
+
+**Generate Code**: `cd generator && ./run-generator.sh [--additional-properties key=value]`
+- Uses OpenAPI Generator CLI + custom generator on classpath
+- Reference: https://github.com/OpenAPITools/openapi-generator/blob/master/docs/customization.md#use-your-new-generator-with-the-cli
+- Examples:
+  - Default: `./run-generator.sh`
+  - With MediatR: `./run-generator.sh --additional-properties useMediatr=true`
+  - Multiple flags: `./run-generator.sh --additional-properties useMediatr=true,useAuthentication=false`
+
+**Output**: Generated code appears in `test-output/` directory
 ## Code Style
 
 Java (OpenAPI Generator codebase) - version detection needed from repository: Follow standard conventions
