@@ -361,4 +361,56 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         }
         additionalProperties.put("serverBasePath", basePath);
     }
+
+    /**
+     * Get the MediatR response type for IRequest<TResponse> based on the operation's return type.
+     * @param operation The CodegenOperation to analyze
+     * @return The response type string for IRequest<T>
+     */
+    private String getMediatrResponseType(CodegenOperation operation) {
+        if (operation.returnType == null || operation.returnType.equals("void")) {
+            return "Unit"; // MediatR.Unit for void operations (DELETE, etc.)
+        }
+        
+        if (operation.returnContainer != null && operation.returnContainer.equals("array")) {
+            // Array responses use IEnumerable<T>
+            return "IEnumerable<" + operation.returnBaseType + ">";
+        }
+        
+        // Direct model type or primitive
+        return operation.returnType;
+    }
+
+    /**
+     * Generate command class name from operation ID (POST/PUT/PATCH/DELETE operations).
+     * @param operationId The OpenAPI operation ID
+     * @return Command class name (e.g., "AddPetCommand")
+     */
+    private String getCommandClassName(String operationId) {
+        // Convert operationId to PascalCase and append "Command"
+        // e.g., "addPet" -> "AddPetCommand", "updatePet" -> "UpdatePetCommand"
+        return camelize(operationId) + "Command";
+    }
+
+    /**
+     * Generate query class name from operation ID (GET operations).
+     * @param operationId The OpenAPI operation ID
+     * @return Query class name (e.g., "GetPetByIdQuery")
+     */
+    private String getQueryClassName(String operationId) {
+        // Convert operationId to PascalCase and append "Query"
+        // e.g., "getPetById" -> "GetPetByIdQuery", "findPetsByStatus" -> "FindPetsByStatusQuery"
+        return camelize(operationId) + "Query";
+    }
+
+    /**
+     * Generate handler class name from request class name.
+     * @param requestClassName The command or query class name
+     * @return Handler class name (e.g., "AddPetCommandHandler")
+     */
+    private String getHandlerClassName(String requestClassName) {
+        // Append "Handler" to the request class name
+        // e.g., "AddPetCommand" -> "AddPetCommandHandler"
+        return requestClassName + "Handler";
+    }
 }
