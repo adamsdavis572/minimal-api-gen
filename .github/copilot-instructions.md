@@ -8,6 +8,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-10
 - C# 11+ (.NET 8.0 SDK via devbox), Java 11 (for generator build via devbox) (003-baseline-test-suite)
 - N/A (in-memory test data) (003-baseline-test-suite)
 - In-memory Dictionary for baseline tests (from Feature 003), N/A for generator itself (004-minimal-api-refactoring)
+- Java 11 (generator), C# 11+ / .NET 8.0 (generated code) (006-mediatr-decoupling)
+- In-memory (for baseline tests only - production uses handler implementations) (006-mediatr-decoupling)
 
 - Java (OpenAPI Generator codebase) - version detection needed from repository + OpenAPI Generator framework, Java source code analysis tools (grep, IDE) (001-fastendpoints-analysis)
 
@@ -30,9 +32,9 @@ tests/
 Java (OpenAPI Generator codebase) - version detection needed from repository: Follow standard conventions
 
 ## Recent Changes
+- 006-mediatr-decoupling: Added Java 11 (generator), C# 11+ / .NET 8.0 (generated code)
 - 004-minimal-api-refactoring: Added In-memory Dictionary for baseline tests (from Feature 003), N/A for generator itself
 - 003-baseline-test-suite: Added C# 11+ (.NET 8.0 SDK via devbox), Java 11 (for generator build via devbox)
-- 002-generator-scaffolding: Added Java 8+ (OpenAPI Generator compatibility), C# 11+ (generated code target) + OpenAPI Generator framework (AbstractCSharpCodegen base class), Maven 3.8.9+, Mustache template engine
 
 
 <!-- MANUAL ADDITIONS START -->
