@@ -27,11 +27,11 @@
 
 **Purpose**: Ensure baseline is working before refactoring begins
 
-- [ ] T001 Verify current 7 baseline tests pass with existing code (RED→GREEN validation)
-- [ ] T002 Document current api.mustache implementation as technical debt baseline in specs/006-mediatr-decoupling/baseline-debt.md
-- [ ] T003 Create test fixtures structure for MediatR handler implementations in test-output/tests/PetstoreApi.Tests/Fixtures/
+- [x] T001 Verify current 7 baseline tests pass with existing code (RED→GREEN validation)
+- [x] T002 Document current api.mustache implementation as technical debt baseline in specs/006-mediatr-decoupling/baseline-debt.md
+- [x] T003 Create test fixtures structure for MediatR handler implementations in test-output/tests/PetstoreApi.Tests/Fixtures/
 
-**Checkpoint**: Baseline established - refactoring can begin
+**Checkpoint**: ✅ Baseline established - refactoring can begin
 
 ---
 

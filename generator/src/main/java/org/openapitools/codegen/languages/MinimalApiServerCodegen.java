@@ -26,6 +26,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String USE_API_VERSIONING = "useApiVersioning";
     public static final String USE_ROUTE_GROUPS = "useRouteGroups";
     public static final String USE_GLOBAL_EXCEPTION_HANDLER = "useGlobalExceptionHandler";
+    public static final String USE_MEDIATR = "useMediatr";
     public static final String ROUTE_PREFIX = "routePrefix";
     public static final String VERSIONING_PREFIX = "versioningPrefix";
     public static final String API_VERSION = "apiVersion";
@@ -42,6 +43,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private boolean useApiVersioning = false;
     private boolean useRouteGroups = true;
     private boolean useGlobalExceptionHandler = true;
+    private boolean useMediatr = false;
     private String routePrefix = "api";
     private String versioningPrefix = "v";
     private String apiVersion = "1";
@@ -79,6 +81,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         addSwitch(USE_API_VERSIONING, "Enable API versioning.", useApiVersioning);
         addSwitch(USE_ROUTE_GROUPS, "Use MapGroup for organizing endpoints by tag.", useRouteGroups);
         addSwitch(USE_GLOBAL_EXCEPTION_HANDLER, "Enable global exception handling middleware.", useGlobalExceptionHandler);
+        addSwitch(USE_MEDIATR, "Enable MediatR CQRS pattern with commands, queries, and handlers.", useMediatr);
         addOption(ROUTE_PREFIX, "The route prefix for the API. Used only if useApiVersioning is true", routePrefix);
         addOption(VERSIONING_PREFIX, "The versioning prefix for the API. Used only if useApiVersioning is true", versioningPrefix);
         addOption(API_VERSION, "The version of the API. Used only if useApiVersioning is true", apiVersion);
@@ -99,6 +102,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         setUseApiVersioning();
         setUseRouteGroups();
         setUseGlobalExceptionHandler();
+        setUseMediatr();
         setRoutePrefix();
         setVersioningPrefix();
         setApiVersion();
@@ -268,6 +272,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             useGlobalExceptionHandler = convertPropertyToBooleanAndWriteBack(USE_GLOBAL_EXCEPTION_HANDLER);
         } else {
             additionalProperties.put(USE_GLOBAL_EXCEPTION_HANDLER, useGlobalExceptionHandler);
+        }
+    }
+
+    private void setUseMediatr() {
+        if (additionalProperties.containsKey(USE_MEDIATR)) {
+            useMediatr = convertPropertyToBooleanAndWriteBack(USE_MEDIATR);
+        } else {
+            additionalProperties.put(USE_MEDIATR, useMediatr);
         }
     }
 
