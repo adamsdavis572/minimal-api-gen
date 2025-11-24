@@ -41,15 +41,16 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add `useMediatr` CLI option to MinimalApiServerCodegen.java (CliOption, default false, boolean type)
-- [ ] T005 [P] Add MediatR helper methods to MinimalApiServerCodegen.java: getMediatrResponseType(), getCommandClassName(), getQueryClassName(), getHandlerClassName()
-- [ ] T006 [P] Create command.mustache template in generator/src/main/resources/aspnet-minimalapi/
-- [ ] T007 [P] Create query.mustache template in generator/src/main/resources/aspnet-minimalapi/
-- [ ] T008 [P] Create handler.mustache template in generator/src/main/resources/aspnet-minimalapi/
-- [ ] T009 Update processOpts() in MinimalApiServerCodegen.java to conditionally register MediatR templates when useMediatr=true
-- [ ] T010 Rebuild generator and verify it compiles: cd generator && devbox run mvn clean package
+- [x] T004 Add `useMediatr` CLI option to MinimalApiServerCodegen.java (CliOption, default false, boolean type)
+- [x] T005 [P] Add MediatR helper methods to MinimalApiServerCodegen.java: getMediatrResponseType(), getCommandClassName(), getQueryClassName(), getHandlerClassName()
+- [x] T006 [P] Create command.mustache template in generator/src/main/resources/aspnet-minimalapi/
+- [x] T007 [P] Create query.mustache template in generator/src/main/resources/aspnet-minimalapi/
+- [x] T008 [P] Create handler.mustache template in generator/src/main/resources/aspnet-minimalapi/
+- [⏸️] T009 DEFERRED: Template registration approach needs research - moving to Phase 3 to unblock progress
+- [x] T010 Rebuild generator and verify it compiles: cd generator && devbox run mvn clean package
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+**Note**: T009 deferred - will implement per-operation file generation after understanding OpenAPI Generator lifecycle better
 
 ---
 

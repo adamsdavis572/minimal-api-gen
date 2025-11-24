@@ -168,6 +168,33 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 }
             }
         }
+
+        // Add MediatR-specific vendor extensions for template generation
+        if (useMediatr) {
+            String mediatrResponseType = getMediatrResponseType(operation);
+            operation.vendorExtensions.put("mediatrResponseType", mediatrResponseType);
+            operation.vendorExtensions.put("isUnit", "Unit".equals(mediatrResponseType));
+            
+            // Determine if operation is a command (mutation) or query (read)
+            boolean isQuery = "GET".equalsIgnoreCase(operation.httpMethod) || "Get".equals(operation.httpMethod);
+            operation.vendorExtensions.put("isQuery", isQuery);
+            operation.vendorExtensions.put("isCommand", !isQuery);
+            
+            if (isQuery) {
+                String queryClassName = getQueryClassName(operation.operationId);
+                operation.vendorExtensions.put("queryClassName", queryClassName);
+                operation.vendorExtensions.put("requestClassName", queryClassName);
+                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(queryClassName));
+            } else {
+                String commandClassName = getCommandClassName(operation.operationId);
+                operation.vendorExtensions.put("commandClassName", commandClassName);
+                operation.vendorExtensions.put("requestClassName", commandClassName);
+                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(commandClassName));
+            }
+            
+            LOGGER.info("Added MediatR vendor extensions for operation '{}': type={}, response={}", 
+                operation.operationId, isQuery ? "Query" : "Command", mediatrResponseType);
+        }
     }
 
     @Override
@@ -389,7 +416,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private String getCommandClassName(String operationId) {
         // Convert operationId to PascalCase and append "Command"
         // e.g., "addPet" -> "AddPetCommand", "updatePet" -> "UpdatePetCommand"
-        return camelize(operationId) + "Command";
+        return toModelName(operationId) + "Command";
     }
 
     /**
@@ -400,7 +427,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private String getQueryClassName(String operationId) {
         // Convert operationId to PascalCase and append "Query"
         // e.g., "getPetById" -> "GetPetByIdQuery", "findPetsByStatus" -> "FindPetsByStatusQuery"
-        return camelize(operationId) + "Query";
+        return toModelName(operationId) + "Query";
     }
 
     /**
