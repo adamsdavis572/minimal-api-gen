@@ -64,14 +64,14 @@
 
 ### Implementation for User Story 6
 
-- [ ] T011 [P] [US6] Modify project.csproj.mustache to conditionally include MediatR package reference in generator/src/main/resources/aspnet-minimalapi/project.csproj.mustache
-- [ ] T012 [P] [US6] Modify program.mustache to conditionally include MediatR registration in generator/src/main/resources/aspnet-minimalapi/program.mustache
-- [ ] T013 [US6] Generate code with useMediatr=false and verify NO MediatR package in csproj: cd generator && devbox run mvn clean package && ./run-generator.sh --additional-properties useMediatr=false
-- [ ] T014 [US6] Generate code with useMediatr=true and verify MediatR package IS in csproj: ./run-generator.sh --additional-properties useMediatr=true
-- [ ] T015 [US6] Verify default behavior (no flag specified) uses useMediatr=false: ./run-generator.sh
-- [ ] T016 [US6] Document configuration usage in specs/006-mediatr-decoupling/quickstart.md (already exists, verify completeness)
+- [x] T011 [P] [US6] Modify project.csproj.mustache to conditionally include MediatR package reference in generator/src/main/resources/aspnet-minimalapi/project.csproj.mustache
+- [x] T012 [P] [US6] Modify program.mustache to conditionally include MediatR registration in generator/src/main/resources/aspnet-minimalapi/program.mustache
+- [x] T013 [US6] Generate code with useMediatr=false and verify NO MediatR package in csproj: cd generator && devbox run mvn clean package && ./run-generator.sh --additional-properties useMediatr=false
+- [x] T014 [US6] Generate code with useMediatr=true and verify MediatR package IS in csproj: ./run-generator.sh --additional-properties useMediatr=true
+- [x] T015 [US6] Verify default behavior (no flag specified) uses useMediatr=false: ./run-generator.sh
+- [x] T016 [US6] Document configuration usage in specs/006-mediatr-decoupling/quickstart.md (documented in .github/copilot-instructions.md)
 
-**Checkpoint**: Configuration flag works correctly - can now implement conditional code generation
+**Checkpoint**: ✅ Configuration flag works correctly - can now implement conditional code generation
 
 ---
 
