@@ -10,8 +10,6 @@ namespace PetstoreApi.Endpoints;
 /// </summary>
 public static class FakeApiEndpoints
 {
-    
-
     /// <summary>
     /// Maps all FakeApi endpoints to the route group
     /// </summary>
@@ -20,11 +18,9 @@ public static class FakeApiEndpoints
         // Get /fake/nullable_example_test - Fake endpoint to test nullable example (object)
         group.MapGet("/fake/nullable_example_test", () =>
         {
-            
             // TODO: Implement FakeNullableExampleTest logic
             TestNullable result = default;
             return Results.Ok(result);
-            
         })
         .WithName("FakeNullableExampleTest")
         .WithSummary("Fake endpoint to test nullable example (object)")
@@ -54,10 +50,8 @@ public static class FakeApiEndpoints
                 return Results.BadRequest("Failed to deserialize query parameter: data");
             }
             
-            
             // TODO: Implement FakeParameterExampleTest logic
             return Results.NoContent();
-            
         })
         .WithName("FakeParameterExampleTest")
         .WithSummary("fake endpoint to test parameter example (object)")

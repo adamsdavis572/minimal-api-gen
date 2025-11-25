@@ -10,8 +10,6 @@ namespace PetstoreApi.Endpoints;
 /// </summary>
 public static class StoreApiEndpoints
 {
-    
-
     /// <summary>
     /// Maps all StoreApi endpoints to the route group
     /// </summary>
@@ -20,10 +18,8 @@ public static class StoreApiEndpoints
         // Delete /store/order/{orderId} - Delete purchase order by ID
         group.MapDelete("/store/order/{orderId}", (string orderId) =>
         {
-            
             // TODO: Implement DeleteOrder logic
             return Results.NoContent();
-            
         })
         .WithName("DeleteOrder")
         .WithSummary("Delete purchase order by ID")
@@ -32,11 +28,9 @@ public static class StoreApiEndpoints
         // Get /store/inventory - Returns pet inventories by status
         group.MapGet("/store/inventory", () =>
         {
-            
             // TODO: Implement GetInventory logic
             var result = new Dictionary<string, int>();
             return Results.Ok(result);
-            
         })
         .WithName("GetInventory")
         .WithSummary("Returns pet inventories by status")
@@ -46,11 +40,9 @@ public static class StoreApiEndpoints
         // Get /store/order/{orderId} - Find purchase order by ID
         group.MapGet("/store/order/{orderId}", (long orderId) =>
         {
-            
             // TODO: Implement GetOrderById logic
             Order result = default;
             return Results.Ok(result);
-            
         })
         .WithName("GetOrderById")
         .WithSummary("Find purchase order by ID")
@@ -60,11 +52,9 @@ public static class StoreApiEndpoints
         // Post /store/order - Place an order for a pet
         group.MapPost("/store/order", async ([FromBody] Order order) =>
         {
-            
             // TODO: Implement PlaceOrder logic
             Order result = default;
             return Results.Ok(result);
-            
         })
         .WithName("PlaceOrder")
         .WithSummary("Place an order for a pet")

@@ -11,13 +11,6 @@ namespace {{{packageName}}}.Endpoints;
 /// </summary>
 public static class {{{classname}}}Endpoints
 {
-    {{#operations}}{{#operation}}{{#-first}}{{#vendorExtensions.x-isPetApi}}
-    // In-memory data store for Pet entities
-    private static readonly Dictionary<long, Pet> _petStore = new();
-    private static long _nextId = 1;
-    private static readonly object _lock = new();
-    {{/vendorExtensions.x-isPetApi}}{{/-first}}{{/operation}}{{/operations}}
-
     /// <summary>
     /// Maps all {{{classname}}} endpoints to the route group
     /// </summary>
@@ -67,58 +60,7 @@ public static class {{{classname}}}Endpoints
             
             {{/hasValidation}}
             {{/bodyParam}}
-            {{#vendorExtensions.x-isAddPet}}
-            // AddPet implementation
-            {{#bodyParam}}
-            lock (_lock)
-            {
-                {{{paramName}}}.Id = _nextId++;
-                _petStore[{{{paramName}}}.Id] = {{{paramName}}};
-            }
-            return Results.Created($"/pet/" + {{{paramName}}}.Id, {{{paramName}}});
-            {{/bodyParam}}
-            {{/vendorExtensions.x-isAddPet}}
-            {{#vendorExtensions.x-isGetPetById}}
-            // GetPetById implementation
-            {{#allParams}}{{#isPathParam}}
-            lock (_lock)
-            {
-                if (_petStore.TryGetValue({{{paramName}}}, out var pet))
-                {
-                    return Results.Ok(pet);
-                }
-            }
-            return Results.NotFound();
-            {{/isPathParam}}{{/allParams}}
-            {{/vendorExtensions.x-isGetPetById}}
-            {{#vendorExtensions.x-isUpdatePet}}
-            // UpdatePet implementation
-            {{#bodyParam}}
-            lock (_lock)
-            {
-                if (!_petStore.ContainsKey({{{paramName}}}.Id))
-                {
-                    return Results.NotFound();
-                }
-                _petStore[{{{paramName}}}.Id] = {{{paramName}}};
-            }
-            return Results.Ok({{{paramName}}});
-            {{/bodyParam}}
-            {{/vendorExtensions.x-isUpdatePet}}
-            {{#vendorExtensions.x-isDeletePet}}
-            // DeletePet implementation
-            {{#allParams}}{{#isPathParam}}
-            lock (_lock)
-            {
-                if (!_petStore.Remove({{{paramName}}}))
-                {
-                    return Results.NotFound();
-                }
-            }
-            return Results.NoContent();
-            {{/isPathParam}}{{/allParams}}
-            {{/vendorExtensions.x-isDeletePet}}
-            {{^vendorExtensions.x-isAddPet}}{{^vendorExtensions.x-isGetPetById}}{{^vendorExtensions.x-isUpdatePet}}{{^vendorExtensions.x-isDeletePet}}
+            {{^useMediatr}}
             // TODO: Implement {{{nickname}}} logic
             {{#returnType}}
             {{#returnSimpleType}}
@@ -132,7 +74,7 @@ public static class {{{classname}}}Endpoints
             {{^returnType}}
             return Results.NoContent();
             {{/returnType}}
-            {{/vendorExtensions.x-isDeletePet}}{{/vendorExtensions.x-isUpdatePet}}{{/vendorExtensions.x-isGetPetById}}{{/vendorExtensions.x-isAddPet}}
+            {{/useMediatr}}
         })
         .WithName("{{{vendorExtensions.operationIdPascalCase}}}")
         {{#summary}}

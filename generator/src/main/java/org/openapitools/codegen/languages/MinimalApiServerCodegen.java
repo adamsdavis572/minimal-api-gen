@@ -181,14 +181,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Store tag for template use
         co.vendorExtensions.put("x-tag-name", groupKey);
         co.vendorExtensions.put("tagPascalCase", toModelName(groupKey));
-        co.vendorExtensions.put("x-isPetApi", "Pet".equalsIgnoreCase(groupKey));
-        
-        // Add flags for specific CRUD operations to enable logic implementation
-        String opId = co.operationId != null ? co.operationId.toLowerCase() : "";
-        co.vendorExtensions.put("x-isAddPet", opId.equals("addpet"));
-        co.vendorExtensions.put("x-isGetPetById", opId.equals("getpetbyid"));
-        co.vendorExtensions.put("x-isUpdatePet", opId.equals("updatepet"));
-        co.vendorExtensions.put("x-isDeletePet", opId.equals("deletepet"));
         
         co.baseName = groupKey;
         

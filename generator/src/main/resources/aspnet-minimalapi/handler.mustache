@@ -14,7 +14,7 @@ namespace {{packageName}}.Handlers;
 /// <summary>
 /// Handler for {{requestClassName}}
 /// </summary>
-public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{mediatrResponseType}}>
+public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{mediatrResponseType}}}>
 {
     // TODO: Add dependencies via constructor injection
     // Example:
@@ -32,7 +32,7 @@ public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{medi
     /// <summary>
     /// Handles the {{requestClassName}} request
     /// </summary>
-    public async Task<{{mediatrResponseType}}> Handle({{requestClassName}} request, CancellationToken cancellationToken)
+    public async Task<{{{mediatrResponseType}}}> Handle({{requestClassName}} request, CancellationToken cancellationToken)
     {
         // TODO: Implement {{operationId}} logic
         {{#isUnit}}

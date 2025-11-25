@@ -10,8 +10,6 @@ namespace PetstoreApi.Endpoints;
 /// </summary>
 public static class DefaultApiEndpoints
 {
-    
-
     /// <summary>
     /// Maps all DefaultApi endpoints to the route group
     /// </summary>
@@ -20,10 +18,8 @@ public static class DefaultApiEndpoints
         // Get /test - Test API
         group.MapGet("/test", ([FromQuery] TestEnum testQuery) =>
         {
-            
             // TODO: Implement TestGet logic
             return Results.NoContent();
-            
         })
         .WithName("TestGet")
         .WithSummary("Test API")
