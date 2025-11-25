@@ -18,8 +18,6 @@ public static class DefaultApiEndpoints
         // Get /test - Test API
         group.MapGet("/test", ([FromQuery] TestEnum testQuery) =>
         {
-            // TODO: Implement TestGet logic
-            return Results.NoContent();
         })
         .WithName("TestGet")
         .WithSummary("Test API")

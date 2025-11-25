@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/006-mediatr-decoupling/`  
 **Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md ✅
 
-**Progress**: 54/100 tasks complete (54%) | Phase 2 ✅ COMPLETE | Phase 3 ✅ COMPLETE | Phase 4 ✅ COMPLETE | Phase 5 (US2) ✅ COMPLETE | Phase 8 (US3) ✅ MOSTLY COMPLETE
+**Progress**: 60/100 tasks complete (60%) | Phase 2 ✅ COMPLETE | Phase 3 ✅ COMPLETE | Phase 4 ✅ COMPLETE | Phase 5 (US2) ✅ COMPLETE | Phase 6 (US4) ✅ COMPLETE | Phase 8 (US3) ✅ MOSTLY COMPLETE
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -138,16 +138,23 @@
 
 **Independent Test**: Generate code with useMediatr=true, build project, verify MediatR is registered and can resolve handlers at runtime.
 
+**Status**: ✅ **COMPLETE** - MediatR registration working conditionally, all MediatR compilation issues resolved
+
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Add MediatR registration code to program.mustache within {{#useMediatr}} conditional block in generator/src/main/resources/aspnet-minimalapi/program.mustache
-- [ ] T040 [US4] Use builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly)) pattern
-- [ ] T041 [US4] Rebuild generator and generate code with useMediatr=true: cd generator && devbox run mvn clean package && ./run-generator.sh --additional-properties useMediatr=true
-- [ ] T042 [US4] Verify generated Program.cs contains AddMediatR() call: grep -A5 "AddMediatR" test-output/src/PetstoreApi/Program.cs
-- [ ] T043 [US4] Verify generated code with useMediatr=false does NOT contain AddMediatR(): ./run-generator.sh --additional-properties useMediatr=false && ! grep "AddMediatR" test-output/src/PetstoreApi/Program.cs
-- [ ] T044 [US4] Build generated code to verify MediatR registration compiles: cd test-output/src/PetstoreApi && devbox run dotnet build
+- [x] T039 [US4] ✅ DONE BY T011-T012: MediatR registration added to program.mustache within {{#useMediatr}} conditional block
+- [x] T040 [US4] ✅ VERIFIED: Uses builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly)) pattern
+- [x] T041 [US4] Rebuilt generator and generated code with useMediatr=true
+- [x] T042 [US4] ✅ VERIFIED: Program.cs line 19 contains AddMediatR() call
+- [x] T043 [US4] ✅ VERIFIED: Generated code with useMediatr=false does NOT contain AddMediatR()
+- [x] T044 [US4] ✅ FIXED: MediatR files now compile successfully - fixed HTML entity escaping (triple braces for dataType) and added missing using statements (Models, Commands, Queries namespaces)
 
-**Checkpoint**: MediatR is properly registered - endpoints can now inject and use IMediator
+**Template Fixes Applied**:
+- command.mustache/query.mustache: Changed `{{dataType}}` to `{{{dataType}}}` for property types (prevents `List&lt;T&gt;` HTML entity bug)
+- command.mustache/query.mustache: Added `using {{packageName}}.Models;` for model type resolution
+- handler.mustache: Added `using {{packageName}}.Commands;`, `using {{packageName}}.Queries;`, `using {{packageName}}.Models;`
+
+**Checkpoint**: ✅ Phase 6 COMPLETE - MediatR is properly registered and all MediatR artifacts compile - endpoints can now inject and use IMediator
 
 ---
 

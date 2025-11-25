@@ -16,6 +16,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 var app = builder.Build();
 

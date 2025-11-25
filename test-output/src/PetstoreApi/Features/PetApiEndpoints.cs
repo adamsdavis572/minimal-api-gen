@@ -18,9 +18,6 @@ public static class PetApiEndpoints
         // Post /pet - Add a new pet to the store
         group.MapPost("/pet", async ([FromBody] Pet pet) =>
         {
-            // TODO: Implement AddPet logic
-            Pet result = default;
-            return Results.Ok(result);
         })
         .WithName("AddPet")
         .WithSummary("Add a new pet to the store")
@@ -30,8 +27,6 @@ public static class PetApiEndpoints
         // Delete /pet/{petId} - Deletes a pet
         group.MapDelete("/pet/{petId}", (long petId, [FromHeader] string apiKey) =>
         {
-            // TODO: Implement DeletePet logic
-            return Results.NoContent();
         })
         .WithName("DeletePet")
         .WithSummary("Deletes a pet")
@@ -40,9 +35,6 @@ public static class PetApiEndpoints
         // Get /pet/findByStatus - Finds Pets by status
         group.MapGet("/pet/findByStatus", ([FromQuery] string[] status) =>
         {
-            // TODO: Implement FindPetsByStatus logic
-            var result = new List<Pet>();
-            return Results.Ok(result);
         })
         .WithName("FindPetsByStatus")
         .WithSummary("Finds Pets by status")
@@ -52,9 +44,6 @@ public static class PetApiEndpoints
         // Get /pet/findByTags - Finds Pets by tags
         group.MapGet("/pet/findByTags", ([FromQuery] string[] tags) =>
         {
-            // TODO: Implement FindPetsByTags logic
-            var result = new List<Pet>();
-            return Results.Ok(result);
         })
         .WithName("FindPetsByTags")
         .WithSummary("Finds Pets by tags")
@@ -64,9 +53,6 @@ public static class PetApiEndpoints
         // Get /pet/{petId} - Find pet by ID
         group.MapGet("/pet/{petId}", (long petId) =>
         {
-            // TODO: Implement GetPetById logic
-            Pet result = default;
-            return Results.Ok(result);
         })
         .WithName("GetPetById")
         .WithSummary("Find pet by ID")
@@ -76,9 +62,6 @@ public static class PetApiEndpoints
         // Put /pet - Update an existing pet
         group.MapPut("/pet", async ([FromBody] Pet pet) =>
         {
-            // TODO: Implement UpdatePet logic
-            Pet result = default;
-            return Results.Ok(result);
         })
         .WithName("UpdatePet")
         .WithSummary("Update an existing pet")

@@ -4,6 +4,7 @@
 // </auto-generated>
 
 using MediatR;
+using {{packageName}}.Models;
 
 namespace {{packageName}}.Queries;
 
@@ -19,21 +20,21 @@ public record {{queryClassName}} : IRequest<{{{mediatrResponseType}}}>
     /// <summary>
     /// {{description}}
     /// </summary>
-    public {{dataType}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
+    public {{{dataType}}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
 
 {{/queryParams}}
 {{#pathParams}}
     /// <summary>
     /// {{description}}
     /// </summary>
-    public {{dataType}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
+    public {{{dataType}}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
 
 {{/pathParams}}
 {{#headerParams}}
     /// <summary>
     /// {{description}}
     /// </summary>
-    public {{dataType}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
+    public {{{dataType}}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
 
 {{/headerParams}}
 }
