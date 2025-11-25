@@ -5,11 +5,19 @@ import org.openapitools.codegen.CodegenOperation;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenType;
 import org.openapitools.codegen.SupportingFile;
+import org.openapitools.codegen.model.ModelMap;
+import org.openapitools.codegen.model.OperationMap;
+import org.openapitools.codegen.model.OperationsMap;
 import org.openapitools.codegen.utils.ModelUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.samskivert.mustache.Mustache;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -72,6 +80,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         modelTemplateFiles.put("model.mustache", ".cs");
         // Minimal API generates one endpoint file per tag using api.mustache
         apiTemplateFiles.put("api.mustache", "Endpoints.cs");
+        
+        // NOTE: Per-operation MediatR files (command, query, handler) are added dynamically
+        // in processOperation() based on useMediatr flag - see generateMediatrFilesForOperation()
 
         addSwitch(USE_PROBLEM_DETAILS, "Enable RFC 7807 compatible error responses.", useProblemDetails);
         addSwitch(USE_RECORDS, "Use record instead of class for the requests and response.", useRecords);
@@ -141,60 +152,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Minimal API: EndpointMapper extension for MapAllEndpoints()
         supportingFiles.add(new SupportingFile("endpointMapper.mustache", 
             packageFolder + File.separator + "Extensions", "EndpointMapper.cs"));
-    }
-
-    @Override
-    protected void processOperation(CodegenOperation operation) {
-        super.processOperation(operation);
-
-        // Converts, for example, PUT to Put for endpoint configuration
-        operation.httpMethod = operation.httpMethod.charAt(0) + operation.httpMethod.substring(1).toLowerCase(Locale.ROOT);
-        
-        // Convert List<T> to T[] for query array parameters
-        // Minimal APIs support string[] natively but not List<string>
-        if (operation.allParams != null) {
-            for (CodegenParameter param : operation.allParams) {
-                if (param.isQueryParam && param.isContainer && param.isArray) {
-                    // Change List<string> to string[], List<int> to int[], etc.
-                    String innerType = param.items != null ? param.items.dataType : "string";
-                    param.dataType = innerType + "[]";
-                    LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility", 
-                        param.paramName, innerType, innerType);
-                }
-                // Log model-type query parameters (will use custom JSON deserialization)
-                if (param.isQueryParam && param.isModel) {
-                    LOGGER.info("Operation '{}' has model-type query parameter '{}' - will use JSON deserialization from query string", 
-                        operation.operationId, param.paramName);
-                }
-            }
-        }
-
-        // Add MediatR-specific vendor extensions for template generation
-        if (useMediatr) {
-            String mediatrResponseType = getMediatrResponseType(operation);
-            operation.vendorExtensions.put("mediatrResponseType", mediatrResponseType);
-            operation.vendorExtensions.put("isUnit", "Unit".equals(mediatrResponseType));
-            
-            // Determine if operation is a command (mutation) or query (read)
-            boolean isQuery = "GET".equalsIgnoreCase(operation.httpMethod) || "Get".equals(operation.httpMethod);
-            operation.vendorExtensions.put("isQuery", isQuery);
-            operation.vendorExtensions.put("isCommand", !isQuery);
-            
-            if (isQuery) {
-                String queryClassName = getQueryClassName(operation.operationId);
-                operation.vendorExtensions.put("queryClassName", queryClassName);
-                operation.vendorExtensions.put("requestClassName", queryClassName);
-                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(queryClassName));
-            } else {
-                String commandClassName = getCommandClassName(operation.operationId);
-                operation.vendorExtensions.put("commandClassName", commandClassName);
-                operation.vendorExtensions.put("requestClassName", commandClassName);
-                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(commandClassName));
-            }
-            
-            LOGGER.info("Added MediatR vendor extensions for operation '{}': type={}, response={}", 
-                operation.operationId, isQuery ? "Query" : "Command", mediatrResponseType);
-        }
     }
 
     @Override
@@ -387,6 +344,201 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             }
         }
         additionalProperties.put("serverBasePath", basePath);
+    }
+
+    @Override
+    public String toApiFilename(String name) {
+        // Custom routing for MediatR files based on template type
+        // This is called during file generation with the tag or operation name
+        return super.toApiFilename(name);
+    }
+    
+    @Override
+    protected void processOperation(CodegenOperation operation) {
+        super.processOperation(operation);
+
+        // Converts, for example, PUT to Put for endpoint configuration
+        operation.httpMethod = operation.httpMethod.charAt(0) + operation.httpMethod.substring(1).toLowerCase(Locale.ROOT);
+        
+        // Convert List<T> to T[] for query array parameters
+        // Minimal APIs support string[] natively but not List<string>
+        if (operation.allParams != null) {
+            for (CodegenParameter param : operation.allParams) {
+                if (param.isQueryParam && param.isContainer && param.isArray) {
+                    // Change List<string> to string[], List<int> to int[], etc.
+                    String innerType = param.items != null ? param.items.dataType : "string";
+                    param.dataType = innerType + "[]";
+                    LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility", 
+                        param.paramName, innerType, innerType);
+                }
+                // Log model-type query parameters (will use custom JSON deserialization)
+                if (param.isQueryParam && param.isModel) {
+                    LOGGER.info("Operation '{}' has model-type query parameter '{}' - will use JSON deserialization from query string", 
+                        operation.operationId, param.paramName);
+                }
+            }
+        }
+
+        // Add MediatR-specific vendor extensions for template generation
+        if (useMediatr) {
+            String mediatrResponseType = getMediatrResponseType(operation);
+            operation.vendorExtensions.put("mediatrResponseType", mediatrResponseType);
+            operation.vendorExtensions.put("isUnit", "Unit".equals(mediatrResponseType));
+            
+            // Determine if operation is a command (mutation) or query (read)
+            boolean isQuery = "GET".equalsIgnoreCase(operation.httpMethod) || "Get".equals(operation.httpMethod);
+            operation.vendorExtensions.put("isQuery", isQuery);
+            operation.vendorExtensions.put("isCommand", !isQuery);
+            
+            if (isQuery) {
+                String queryClassName = getQueryClassName(operation.operationId);
+                operation.vendorExtensions.put("queryClassName", queryClassName);
+                operation.vendorExtensions.put("requestClassName", queryClassName);
+                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(queryClassName));
+            } else {
+                String commandClassName = getCommandClassName(operation.operationId);
+                operation.vendorExtensions.put("commandClassName", commandClassName);
+                operation.vendorExtensions.put("requestClassName", commandClassName);
+                operation.vendorExtensions.put("handlerClassName", getHandlerClassName(commandClassName));
+            }
+            
+            LOGGER.info("Added MediatR vendor extensions for operation '{}': type={}, response={}", 
+                operation.operationId, isQuery ? "Query" : "Command", mediatrResponseType);
+        }
+    }
+    
+    @Override
+    public OperationsMap postProcessOperationsWithModels(OperationsMap objs, List<ModelMap> allModels) {
+        // Let base class do its standard work (generating the grouped API files)
+        OperationsMap results = super.postProcessOperationsWithModels(objs, allModels);
+        
+        // Only generate MediatR files if feature is enabled
+        if (!useMediatr) {
+            return results;
+        }
+        
+        // Get the operations for this tag group
+        OperationMap operations = results.getOperations();
+        List<CodegenOperation> opList = operations.getOperation();
+        
+        if (opList == null || opList.isEmpty()) {
+            return results;
+        }
+        
+        LOGGER.info("Generating MediatR files for {} operations (T009)", opList.size());
+        
+        // Setup Mustache compiler once
+        Mustache.Compiler compiler = Mustache.compiler().defaultValue("");
+        
+        // Generate files for each operation
+        for (CodegenOperation op : opList) {
+            try {
+                generateMediatrFilesForOperation(compiler, op, results);
+            } catch (Exception e) {
+                LOGGER.error("Failed to generate MediatR files for operation '{}': {}", 
+                    op.operationId, e.getMessage(), e);
+            }
+        }
+        
+        return results;
+    }
+    
+    /**
+     * Generate command/query and handler files for a single operation using Mustache template engine.
+     * This is the proper T009 implementation - files get full operation data context.
+     * 
+     * @param compiler The Mustache compiler instance
+     * @param operation The operation to generate files for
+     * @param objs The operations map containing shared context (packageName, imports, etc.)
+     */
+    private void generateMediatrFilesForOperation(Mustache.Compiler compiler, CodegenOperation operation, 
+                                                   OperationsMap objs) throws Exception {
+        Boolean isQuery = (Boolean) operation.vendorExtensions.get("isQuery");
+        String requestClassName = (String) operation.vendorExtensions.get("requestClassName");
+        String handlerClassName = (String) operation.vendorExtensions.get("handlerClassName");
+        
+        if (requestClassName == null) {
+            LOGGER.warn("Skipping MediatR file generation for operation '{}' - missing class names", operation.operationId);
+            return;
+        }
+        
+        // Prepare template data - merge operation data with shared context
+        Map<String, Object> data = new HashMap<>();
+        data.put("packageName", packageName);
+        data.put("operation", operation);
+        data.put("operationId", operation.operationId);
+        data.put("commandClassName", operation.vendorExtensions.get("commandClassName"));
+        data.put("queryClassName", operation.vendorExtensions.get("queryClassName"));
+        data.put("requestClassName", requestClassName);
+        data.put("handlerClassName", handlerClassName);
+        data.put("mediatrResponseType", operation.vendorExtensions.get("mediatrResponseType"));
+        data.put("isUnit", operation.vendorExtensions.get("isUnit"));
+        data.put("allParams", operation.allParams);
+        data.put("queryParams", operation.queryParams);
+        data.put("pathParams", operation.pathParams);
+        data.put("headerParams", operation.headerParams);
+        data.put("bodyParam", operation.bodyParam);
+        data.put("hasBodyParam", operation.getHasBodyParam());
+        data.put("description", operation.summary);
+        
+        // Determine template and folder based on operation type
+        String requestTemplate = (isQuery != null && isQuery) ? "query.mustache" : "command.mustache";
+        String requestFolder = (isQuery != null && isQuery) ? "Queries" : "Commands";
+        
+        // Generate command/query file
+        String requestFile = requestClassName + ".cs";
+        writeMediatrFile(compiler, requestTemplate, data, requestFolder, requestFile);
+        LOGGER.info("Generated {} file: {}/{}", isQuery ? "Query" : "Command", requestFolder, requestFile);
+        
+        // Generate handler file (with existence check per R4)
+        String handlerFolder = "Handlers";
+        String handlerFile = handlerClassName + ".cs";
+        String packageFolder = sourceFolder + File.separator + packageName;
+        String handlerPath = outputFolder + File.separator + packageFolder + 
+            File.separator + handlerFolder + File.separator + handlerFile;
+        
+        File handlerFileObj = new File(handlerPath);
+        if (!handlerFileObj.exists()) {
+            writeMediatrFile(compiler, "handler.mustache", data, handlerFolder, handlerFile);
+            LOGGER.info("Generated handler file: {}/{}", handlerFolder, handlerFile);
+        } else {
+            LOGGER.info("Skipping handler '{}' - already exists", handlerFile);
+        }
+    }
+    
+    /**
+     * Load a template, render it with data, and write to disk.
+     * 
+     * @param compiler The Mustache compiler instance
+     * @param templateName Template file name (e.g., "command.mustache")
+     * @param data Data context for template rendering
+     * @param folder Relative folder path (e.g., "Commands", "Queries", "Handlers")
+     * @param filename Output filename (e.g., "AddPetCommand.cs")
+     */
+    private void writeMediatrFile(Mustache.Compiler compiler, String templateName, 
+                                   Map<String, Object> data, String folder, String filename) throws Exception {
+        // Load template from resources
+        String templatePath = templateDir + File.separator + templateName;
+        InputStream stream = this.getClass().getClassLoader().getResourceAsStream(templatePath);
+        
+        if (stream == null) {
+            throw new IllegalStateException("Template not found: " + templatePath);
+        }
+        
+        // Compile and render template
+        String content = compiler.compile(new InputStreamReader(stream, StandardCharsets.UTF_8))
+                                 .execute(data);
+        
+        // Construct output path
+        String packageFolder = sourceFolder + File.separator + packageName;
+        String relativePath = packageFolder + File.separator + folder + File.separator + filename;
+        File outputFile = new File(outputFolder, relativePath);
+        
+        // Ensure directory exists
+        outputFile.getParentFile().mkdirs();
+        
+        // Write file
+        Files.write(outputFile.toPath(), content.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

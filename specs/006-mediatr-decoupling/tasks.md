@@ -3,6 +3,8 @@
 **Input**: Design documents from `/specs/006-mediatr-decoupling/`  
 **Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md ✅
 
+**Progress**: 26/100 tasks complete (26%) | Phase 2 ✅ COMPLETE | Phase 3 ✅ COMPLETE
+
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 **Tests**: Following TDD approach per Principle II - baseline tests MUST pass with `useMediatr=false`, then same tests MUST pass with `useMediatr=true` using handler implementations.
@@ -46,11 +48,10 @@
 - [x] T006 [P] Create command.mustache template in generator/src/main/resources/aspnet-minimalapi/
 - [x] T007 [P] Create query.mustache template in generator/src/main/resources/aspnet-minimalapi/
 - [x] T008 [P] Create handler.mustache template in generator/src/main/resources/aspnet-minimalapi/
-- [⏸️] T009 DEFERRED: Template registration approach needs research - moving to Phase 3 to unblock progress
+- [x] T009 Implement per-operation file generation using postProcessOperationsWithModels() with Mustache compiler for direct template rendering and manual file writing (46 files generated: 12 Commands, 11 Queries, 23 Handlers)
 - [x] T010 Rebuild generator and verify it compiles: cd generator && devbox run mvn clean package
 
-**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
-**Note**: T009 deferred - will implement per-operation file generation after understanding OpenAPI Generator lifecycle better
+**Checkpoint**: ✅ Phase 2 COMPLETE - Foundation ready, all user story implementation can now begin in parallel
 
 ---
 
