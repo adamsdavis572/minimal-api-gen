@@ -3,6 +3,11 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using {{{packageName}}}.Models;
+{{#useMediatr}}
+using MediatR;
+using {{{packageName}}}.Commands;
+using {{{packageName}}}.Queries;
+{{/useMediatr}}
 
 namespace {{{packageName}}}.Endpoints;
 
@@ -19,7 +24,7 @@ public static class {{{classname}}}Endpoints
         {{#operation}}
         {{^hasFormParams}}
         // {{{httpMethod}}} {{{path}}}{{#summary}} - {{{summary}}}{{/summary}}
-        group.Map{{{httpMethod}}}("{{{path}}}", {{#bodyParam}}async ([FromBody] {{{dataType}}} {{{paramName}}}{{#hasValidation}}, IValidator<{{{dataType}}}> validator{{/hasValidation}}) =>{{/bodyParam}}{{^bodyParam}}({{#allParams}}{{^isFormParam}}{{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isQueryParam}}{{#isModel}}HttpContext httpContext{{/isModel}}{{/isQueryParam}}{{^isQueryParam}}{{{dataType}}} {{{paramName}}}{{/isQueryParam}}{{#isQueryParam}}{{^isModel}}{{{dataType}}} {{{paramName}}}{{/isModel}}{{/isQueryParam}}{{^-last}}, {{/-last}}{{/isFormParam}}{{/allParams}}) =>{{/bodyParam}}
+        group.Map{{{httpMethod}}}("{{{path}}}", async (HttpContext httpContext{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{/isBodyParam}}{{{dataType}}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{{dataType}}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
         {
             {{^bodyParam}}
             {{#allParams}}
@@ -60,6 +65,38 @@ public static class {{{classname}}}Endpoints
             
             {{/hasValidation}}
             {{/bodyParam}}
+                        {{#useMediatr}}
+            // MediatR delegation
+            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
+            {{#vendorExtensions.isQuery}}
+            var query = new {{{vendorExtensions.queryClassName}}}
+            {
+                {{#allParams}}
+                {{^isFormParam}}
+                {{{paramName}}} = {{{paramName}}}{{^-last}},{{/-last}}
+                {{/isFormParam}}
+                {{/allParams}}
+            };
+            var result = await mediator.Send(query);
+            {{/vendorExtensions.isQuery}}
+            {{#vendorExtensions.isCommand}}
+            var command = new {{{vendorExtensions.commandClassName}}}
+            {
+                {{#allParams}}
+                {{^isFormParam}}
+                {{{paramName}}} = {{{paramName}}}{{^-last}},{{/-last}}
+                {{/isFormParam}}
+                {{/allParams}}
+            };
+            var result = await mediator.Send(command);
+            {{/vendorExtensions.isCommand}}
+            {{#returnType}}
+            return Results.Ok(result);
+            {{/returnType}}
+            {{^returnType}}
+            return Results.NoContent();
+            {{/returnType}}
+            {{/useMediatr}}
             {{^useMediatr}}
             // TODO: Implement {{{nickname}}} logic
             {{#returnType}}

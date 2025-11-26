@@ -2,6 +2,9 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using PetstoreApi.Models;
+using MediatR;
+using PetstoreApi.Commands;
+using PetstoreApi.Queries;
 
 namespace PetstoreApi.Endpoints;
 
@@ -16,8 +19,16 @@ public static class DefaultApiEndpoints
     public static RouteGroupBuilder MapDefaultApiEndpoints(this RouteGroupBuilder group)
     {
         // Get /test - Test API
-        group.MapGet("/test", ([FromQuery] TestEnum testQuery) =>
+        group.MapGet("/test", async (HttpContext httpContext, [FromQuery] TestEnum testQuery) =>
         {
+            // MediatR delegation
+            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
+            var query = new TestGetQuery
+            {
+                testQuery = testQuery
+            };
+            var result = await mediator.Send(query);
+            return Results.NoContent();
         })
         .WithName("TestGet")
         .WithSummary("Test API")

@@ -354,6 +354,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         
         // Convert List<T> to T[] for query array parameters
         // Minimal APIs support string[] natively but not List<string>
+        // Apply to allParams AND queryParams (they are separate lists, not references)
         if (operation.allParams != null) {
             for (CodegenParameter param : operation.allParams) {
                 if (param.isQueryParam && param.isContainer && param.isArray) {
@@ -363,10 +364,21 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                     LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility", 
                         param.paramName, innerType, innerType);
                 }
-                // Log model-type query parameters (will use custom JSON deserialization)
+                // Mark model-type query parameters for special handling (complex JSON deserialization)
                 if (param.isQueryParam && param.isModel) {
+                    param.vendorExtensions.put("x-is-complex-query-param", true);
                     LOGGER.info("Operation '{}' has model-type query parameter '{}' - will use JSON deserialization from query string", 
                         operation.operationId, param.paramName);
+                }
+            }
+        }
+        
+        // Also apply conversion to queryParams list for MediatR Query class generation
+        if (operation.queryParams != null) {
+            for (CodegenParameter param : operation.queryParams) {
+                if (param.isContainer && param.isArray) {
+                    String innerType = param.items != null ? param.items.dataType : "string";
+                    param.dataType = innerType + "[]";
                 }
             }
         }

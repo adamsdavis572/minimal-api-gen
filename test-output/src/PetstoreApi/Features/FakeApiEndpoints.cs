@@ -2,6 +2,9 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using PetstoreApi.Models;
+using MediatR;
+using PetstoreApi.Commands;
+using PetstoreApi.Queries;
 
 namespace PetstoreApi.Endpoints;
 
@@ -16,8 +19,15 @@ public static class FakeApiEndpoints
     public static RouteGroupBuilder MapFakeApiEndpoints(this RouteGroupBuilder group)
     {
         // Get /fake/nullable_example_test - Fake endpoint to test nullable example (object)
-        group.MapGet("/fake/nullable_example_test", () =>
+        group.MapGet("/fake/nullable_example_test", async (HttpContext httpContext) =>
         {
+            // MediatR delegation
+            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
+            var query = new FakeNullableExampleTestQuery
+            {
+            };
+            var result = await mediator.Send(query);
+            return Results.Ok(result);
         })
         .WithName("FakeNullableExampleTest")
         .WithSummary("Fake endpoint to test nullable example (object)")
@@ -25,7 +35,7 @@ public static class FakeApiEndpoints
         .ProducesProblem(400);
 
         // Get /fake/parameter_example_test - fake endpoint to test parameter example (object)
-        group.MapGet("/fake/parameter_example_test", (HttpContext httpContext) =>
+        group.MapGet("/fake/parameter_example_test", async (HttpContext httpContext) =>
         {
             // Deserialize complex object from query parameter
             var dataJson = httpContext.Request.Query["data"].FirstOrDefault();
@@ -47,6 +57,14 @@ public static class FakeApiEndpoints
                 return Results.BadRequest("Failed to deserialize query parameter: data");
             }
             
+            // MediatR delegation
+            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
+            var query = new FakeParameterExampleTestQuery
+            {
+                data = data
+            };
+            var result = await mediator.Send(query);
+            return Results.NoContent();
         })
         .WithName("FakeParameterExampleTest")
         .WithSummary("fake endpoint to test parameter example (object)")

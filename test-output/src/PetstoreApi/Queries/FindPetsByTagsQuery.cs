@@ -19,6 +19,6 @@ public record FindPetsByTagsQuery : IRequest<List<Pet>>
     /// <summary>
     /// Tags to filter by
     /// </summary>
-    public List<string> tags { get; init; }
+    public string[] tags { get; init; }
 
 }

@@ -19,6 +19,6 @@ public record FindPetsByStatusQuery : IRequest<List<Pet>>
     /// <summary>
     /// Status values that need to be considered for filter
     /// </summary>
-    public List<string> status { get; init; }
+    public string[] status { get; init; }
 
 }
