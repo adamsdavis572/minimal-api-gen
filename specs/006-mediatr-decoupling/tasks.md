@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/006-mediatr-decoupling/`  
 **Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md ✅
 
-**Progress**: 75/100 tasks complete (75%) | Phase 2 ✅ COMPLETE | Phase 3 ✅ COMPLETE | Phase 4 ✅ COMPLETE | Phase 5 (US2) ✅ COMPLETE | Phase 6 (US4) ✅ COMPLETE | Phase 7 (US1) ✅ COMPLETE | Phase 8 (US3) ✅ MOSTLY COMPLETE
+**Progress**: 78/100 tasks complete (78%) | Phase 2 ✅ COMPLETE | Phase 3 ✅ COMPLETE | Phase 4 ✅ COMPLETE | Phase 5 (US2) ✅ COMPLETE | Phase 6 (US4) ✅ COMPLETE | Phase 7 (US1) ✅ COMPLETE | Phase 8 (US3) ✅ COMPLETE
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -204,7 +204,7 @@
 
 **Independent Test**: Generate code and verify Handlers/ directory contains handler classes with Handle() methods containing TODO comments and NotImplementedException.
 
-**Status**: ✅ **COMPLETE** - T009 implemented handler generation with existence check (R4 requirement)
+**Status**: ✅ **COMPLETE** - All handler scaffolds generated and file protection verified
 
 ### Implementation for User Story 3
 
@@ -218,9 +218,9 @@
 - [x] T067 [US3] ✅ VERIFIED: Handlers/ directory contains 23 handler files including AddPetCommandHandler.cs, GetPetByIdQueryHandler.cs, UpdatePetCommandHandler.cs, DeletePetCommandHandler.cs
 - [x] T068 [US3] ✅ VERIFIED: AddPetCommandHandler implements IRequestHandler<AddPetCommand, Pet> with correct signature
 - [x] T069 [US3] ✅ VERIFIED: Handlers contain TODO comments and NotImplementedException scaffolding
-- [ ] T070 [US3] Test handler protection: echo "// Modified" >> test-output/src/PetstoreApi/Handlers/AddPetCommandHandler.cs && cd generator && ./run-generator.sh --additional-properties useMediatr=true
-- [ ] T071 [US3] Verify modified handler was NOT overwritten: grep "Modified" test-output/src/PetstoreApi/Handlers/AddPetCommandHandler.cs
-- [ ] T072 [US3] Verify generator logs show "skipping" message for existing handlers: cd generator && ./run-generator.sh --additional-properties useMediatr=true 2>&1 | grep "Skipping handler"
+- [x] T070 [US3] ✅ VERIFIED: Added test modification to AddPetCommandHandler.cs and regenerated code
+- [x] T071 [US3] ✅ VERIFIED: Modified handler was NOT overwritten - test comment survived regeneration
+- [x] T072 [US3] ✅ VERIFIED: Generator logs show "Skipping handler 'AddPetCommandHandler.cs' - already exists" for all 23 handlers
 - [x] T073 [US3] ✅ VERIFIED: Generated code with handler scaffolds compiles successfully
 
 **Checkpoint**: ✅ Handler scaffolds are generated and protected - developers can now implement business logic
