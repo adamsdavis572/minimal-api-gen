@@ -5,7 +5,6 @@
 // </auto-generated>
 
 using MediatR;
-using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
@@ -15,7 +14,7 @@ namespace PetstoreApi.Handlers;
 /// <summary>
 /// Handler for DeleteOrderCommand
 /// </summary>
-public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, Unit>
+public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, bool>
 {
     // TODO: Add dependencies via constructor injection
     // Example:
@@ -33,11 +32,9 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, Uni
     /// <summary>
     /// Handles the DeleteOrderCommand request
     /// </summary>
-    public async Task<Unit> Handle(DeleteOrderCommand request, CancellationToken cancellationToken)
+    public async Task<bool> Handle(DeleteOrderCommand request, CancellationToken cancellationToken)
     {
         // TODO: Implement DeleteOrder logic
-        // For void operations, return Unit.Value
-        await Task.CompletedTask; // Remove this line when implementing
-        return Unit.Value;
+        throw new NotImplementedException("Handler for DeleteOrder not yet implemented");
     }
 }

@@ -19,16 +19,16 @@ public static class PetApiEndpoints
     public static RouteGroupBuilder MapPetApiEndpoints(this RouteGroupBuilder group)
     {
         // Post /pet - Add a new pet to the store
-        group.MapPost("/pet", async (HttpContext httpContext, [FromBody] Pet pet) =>
+        group.MapPost("/pet", async (IMediator mediator, [FromBody] Pet pet) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var command = new AddPetCommand
             {
                 pet = pet
             };
             var result = await mediator.Send(command);
-            return Results.Ok(result);
+            if (result == null) return Results.NotFound();
+            return Results.Created($"/v2/pet", result);
         })
         .WithName("AddPet")
         .WithSummary("Add a new pet to the store")
@@ -36,32 +36,33 @@ public static class PetApiEndpoints
         .ProducesProblem(400);
 
         // Delete /pet/{petId} - Deletes a pet
-        group.MapDelete("/pet/{petId}", async (HttpContext httpContext, long petId, [FromHeader] string apiKey) =>
+        group.MapDelete("/pet/{petId}", async (IMediator mediator, long petId, [FromHeader] string apiKey) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var command = new DeletePetCommand
             {
                 petId = petId,
                 apiKey = apiKey
             };
             var result = await mediator.Send(command);
-            return Results.NoContent();
+            // DELETE with bool return - check if resource was found
+            return result ? Results.NoContent() : Results.NotFound();
         })
         .WithName("DeletePet")
         .WithSummary("Deletes a pet")
+        .Produces<bool>(200)
         .ProducesProblem(400);
 
         // Get /pet/findByStatus - Finds Pets by status
-        group.MapGet("/pet/findByStatus", async (HttpContext httpContext, [FromQuery] string[] status) =>
+        group.MapGet("/pet/findByStatus", async (IMediator mediator, [FromQuery] string[] status) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var query = new FindPetsByStatusQuery
             {
                 status = status
             };
             var result = await mediator.Send(query);
+            if (result == null) return Results.NotFound();
             return Results.Ok(result);
         })
         .WithName("FindPetsByStatus")
@@ -70,15 +71,15 @@ public static class PetApiEndpoints
         .ProducesProblem(400);
 
         // Get /pet/findByTags - Finds Pets by tags
-        group.MapGet("/pet/findByTags", async (HttpContext httpContext, [FromQuery] string[] tags) =>
+        group.MapGet("/pet/findByTags", async (IMediator mediator, [FromQuery] string[] tags) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var query = new FindPetsByTagsQuery
             {
                 tags = tags
             };
             var result = await mediator.Send(query);
+            if (result == null) return Results.NotFound();
             return Results.Ok(result);
         })
         .WithName("FindPetsByTags")
@@ -87,15 +88,15 @@ public static class PetApiEndpoints
         .ProducesProblem(400);
 
         // Get /pet/{petId} - Find pet by ID
-        group.MapGet("/pet/{petId}", async (HttpContext httpContext, long petId) =>
+        group.MapGet("/pet/{petId}", async (IMediator mediator, long petId) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var query = new GetPetByIdQuery
             {
                 petId = petId
             };
             var result = await mediator.Send(query);
+            if (result == null) return Results.NotFound();
             return Results.Ok(result);
         })
         .WithName("GetPetById")
@@ -104,15 +105,15 @@ public static class PetApiEndpoints
         .ProducesProblem(400);
 
         // Put /pet - Update an existing pet
-        group.MapPut("/pet", async (HttpContext httpContext, [FromBody] Pet pet) =>
+        group.MapPut("/pet", async (IMediator mediator, [FromBody] Pet pet) =>
         {
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             var command = new UpdatePetCommand
             {
                 pet = pet
             };
             var result = await mediator.Send(command);
+            if (result == null) return Results.NotFound();
             return Results.Ok(result);
         })
         .WithName("UpdatePet")

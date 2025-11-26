@@ -5,9 +5,11 @@
 // </auto-generated>
 
 using MediatR;
+using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
 
@@ -16,25 +18,26 @@ namespace PetstoreApi.Handlers;
 /// </summary>
 public class DeletePetCommandHandler : IRequestHandler<DeletePetCommand, bool>
 {
-    // TODO: Add dependencies via constructor injection
-    // Example:
-    // private readonly ILogger<DeletePetCommandHandler> _logger;
-    // private readonly ApplicationDbContext _db;
-    //
-    // public DeletePetCommandHandler(
-    //     ILogger<DeletePetCommandHandler> logger,
-    //     ApplicationDbContext db)
-    // {
-    //     _logger = logger;
-    //     _db = db;
-    // }
+    private readonly IPetStore _petStore;
+
+    public DeletePetCommandHandler(IPetStore petStore)
+    {
+        _petStore = petStore;
+    }
 
     /// <summary>
     /// Handles the DeletePetCommand request
     /// </summary>
     public async Task<bool> Handle(DeletePetCommand request, CancellationToken cancellationToken)
     {
-        // TODO: Implement DeletePet logic
-        throw new NotImplementedException("Handler for DeletePet not yet implemented");
+        // Check if pet exists before deletion
+        var pet = _petStore.GetById(request.petId);
+        if (pet == null)
+        {
+            return await Task.FromResult(false); // Not found
+        }
+
+        _petStore.Delete(request.petId);
+        return await Task.FromResult(true); // Success
     }
 }

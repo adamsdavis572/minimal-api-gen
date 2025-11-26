@@ -14,7 +14,7 @@ namespace PetstoreApi.Commands;
 /// Delete user
 /// 
 /// </summary>
-public record DeleteUserCommand : IRequest<Unit>
+public record DeleteUserCommand : IRequest<bool>
 {
     /// <summary>
     /// The name that needs to be deleted

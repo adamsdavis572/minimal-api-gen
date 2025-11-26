@@ -14,7 +14,7 @@ namespace PetstoreApi.Commands;
 /// Delete purchase order by ID
 /// 
 /// </summary>
-public record DeleteOrderCommand : IRequest<Unit>
+public record DeleteOrderCommand : IRequest<bool>
 {
     /// <summary>
     /// ID of the order that needs to be deleted

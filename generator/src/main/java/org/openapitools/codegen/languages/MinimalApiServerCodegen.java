@@ -389,10 +389,29 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             operation.vendorExtensions.put("mediatrResponseType", mediatrResponseType);
             operation.vendorExtensions.put("isUnit", "Unit".equals(mediatrResponseType));
             
+            // For DELETE operations, set returnType to bool so template conditions work
+            if ("DELETE".equalsIgnoreCase(operation.httpMethod) && "bool".equals(mediatrResponseType)) {
+                operation.returnType = "bool";
+            }
+            
             // Determine if operation is a command (mutation) or query (read)
             boolean isQuery = "GET".equalsIgnoreCase(operation.httpMethod) || "Get".equals(operation.httpMethod);
             operation.vendorExtensions.put("isQuery", isQuery);
             operation.vendorExtensions.put("isCommand", !isQuery);
+            
+            // Mark POST operations for Created (201) response
+            boolean isPost = "POST".equalsIgnoreCase(operation.httpMethod);
+            operation.vendorExtensions.put("x-is-post-operation", isPost);
+            
+            // Mark DELETE operations that return bool (success/failure indicator)
+            boolean isDeleteWithBool = "DELETE".equalsIgnoreCase(operation.httpMethod) && 
+                                       "bool".equals(mediatrResponseType);
+            operation.vendorExtensions.put("x-is-delete-with-bool", isDeleteWithBool);
+            
+            // Check if operation has complex query parameters (needs HttpContext)
+            boolean hasComplexQueryParam = operation.allParams != null && operation.allParams.stream()
+                .anyMatch(p -> Boolean.TRUE.equals(p.vendorExtensions.get("x-is-complex-query-param")));
+            operation.vendorExtensions.put("hasComplexQueryParam", hasComplexQueryParam);
             
             if (isQuery) {
                 String queryClassName = getQueryClassName(operation.operationId);
@@ -552,7 +571,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
      */
     private String getMediatrResponseType(CodegenOperation operation) {
         if (operation.returnType == null || operation.returnType.equals("void")) {
-            return "Unit"; // MediatR.Unit for void operations (DELETE, etc.)
+            // DELETE operations should return bool (success/notfound)
+            if (operation.httpMethod != null && operation.httpMethod.equalsIgnoreCase("DELETE")) {
+                return "bool";
+            }
+            return "Unit"; // MediatR.Unit for other void operations
         }
         
         if (operation.returnContainer != null && operation.returnContainer.equals("array")) {

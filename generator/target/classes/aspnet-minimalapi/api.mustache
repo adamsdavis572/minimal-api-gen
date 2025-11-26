@@ -24,7 +24,7 @@ public static class {{{classname}}}Endpoints
         {{#operation}}
         {{^hasFormParams}}
         // {{{httpMethod}}} {{{path}}}{{#summary}} - {{{summary}}}{{/summary}}
-        group.Map{{{httpMethod}}}("{{{path}}}", async (HttpContext httpContext{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{/isBodyParam}}{{{dataType}}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{{dataType}}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
+        group.Map{{{httpMethod}}}("{{{path}}}", async ({{#useMediatr}}IMediator mediator{{#vendorExtensions.hasComplexQueryParam}}, HttpContext httpContext{{/vendorExtensions.hasComplexQueryParam}}{{/useMediatr}}{{^useMediatr}}HttpContext httpContext{{/useMediatr}}{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{/isBodyParam}}{{{dataType}}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{{dataType}}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
         {
             {{^bodyParam}}
             {{#allParams}}
@@ -67,17 +67,28 @@ public static class {{{classname}}}Endpoints
             {{/bodyParam}}
                         {{#useMediatr}}
             // MediatR delegation
-            var mediator = httpContext.RequestServices.GetRequiredService<IMediator>();
             {{#vendorExtensions.isQuery}}
             var query = new {{{vendorExtensions.queryClassName}}}
             {
                 {{#allParams}}
                 {{^isFormParam}}
                 {{{paramName}}} = {{{paramName}}}{{^-last}},{{/-last}}
-                {{/isFormParam}}
-                {{/allParams}}
+            {{/isFormParam}}
+            {{/allParams}}
             };
             var result = await mediator.Send(query);
+            {{#returnType}}
+            {{#isListContainer}}
+            return Results.Ok(result);
+            {{/isListContainer}}
+            {{^isListContainer}}
+            if (result == null) return Results.NotFound();
+            return Results.Ok(result);
+            {{/isListContainer}}
+            {{/returnType}}
+            {{^returnType}}
+            return Results.Ok();
+            {{/returnType}}
             {{/vendorExtensions.isQuery}}
             {{#vendorExtensions.isCommand}}
             var command = new {{{vendorExtensions.commandClassName}}}
@@ -89,13 +100,30 @@ public static class {{{classname}}}Endpoints
                 {{/allParams}}
             };
             var result = await mediator.Send(command);
-            {{/vendorExtensions.isCommand}}
             {{#returnType}}
+            {{#isListContainer}}
             return Results.Ok(result);
+            {{/isListContainer}}
+            {{^isListContainer}}
+            {{#vendorExtensions.x-is-delete-with-bool}}
+            // DELETE with bool return - check if resource was found
+            return result ? Results.NoContent() : Results.NotFound();
+            {{/vendorExtensions.x-is-delete-with-bool}}
+            {{^vendorExtensions.x-is-delete-with-bool}}
+            if (result == null) return Results.NotFound();
+            {{#vendorExtensions.x-is-post-operation}}
+            return Results.Created($"{{basePathWithoutHost}}{{path}}", result);
+            {{/vendorExtensions.x-is-post-operation}}
+            {{^vendorExtensions.x-is-post-operation}}
+            return Results.Ok(result);
+            {{/vendorExtensions.x-is-post-operation}}
+            {{/vendorExtensions.x-is-delete-with-bool}}
+            {{/isListContainer}}
             {{/returnType}}
             {{^returnType}}
             return Results.NoContent();
             {{/returnType}}
+            {{/vendorExtensions.isCommand}}
             {{/useMediatr}}
             {{^useMediatr}}
             // TODO: Implement {{{nickname}}} logic

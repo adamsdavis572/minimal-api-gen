@@ -14,7 +14,7 @@ namespace PetstoreApi.Commands;
 /// Deletes a pet
 /// 
 /// </summary>
-public record DeletePetCommand : IRequest<Unit>
+public record DeletePetCommand : IRequest<bool>
 {
     /// <summary>
     /// Pet id to delete
