@@ -1,0 +1,28 @@
+# Test outputs
+test-output/
+docker-test-output/
+
+# Build artifacts (except the generator JAR we need)
+generator/target/*
+!generator/target/aspnet-minimalapi-openapi-generator-1.0.0.jar
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+docs/
+specs/
+analysis.md
+
+# macOS
+.DS_Store
+
+# Devbox
+.devbox/

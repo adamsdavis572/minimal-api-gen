@@ -17,21 +17,47 @@ A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs 
 
 ## Prerequisites
 
+### Local Development
 - Java 11+ (for building the generator)
 - .NET 8.0 SDK (for generated code)
 - Maven 3.8.9+ (managed via devbox)
 - [Devbox](https://www.jetpack.io/devbox) (for reproducible builds)
 
+### Docker (Alternative)
+- Docker (no other dependencies needed)
+
 ## Quick Start
 
-### 1. Build the Generator
+### Option 1: Docker (Recommended for CI/CD)
+
+```bash
+# Build the Docker image
+cd docker
+./build.sh
+
+# Generate your API with MediatR (run from project root)
+cd ..
+docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+  generate -g aspnetcore-minimalapi \
+  -i /workspace/specs/petstore.yaml \
+  -o /workspace/output \
+  --additional-properties useMediatr=true
+
+# Test the Docker image
+cd docker
+./test.sh
+```
+
+### Option 2: Local Development
+
+#### 1. Build the Generator
 
 ```bash
 cd generator
 devbox run mvn clean package
 ```
 
-### 2. Generate Your API
+#### 2. Generate Your API
 
 ```bash
 # Basic generation (without MediatR)
@@ -55,18 +81,69 @@ Generated code appears in the `test-output/` directory.
 
 ## Generator Usage
 
-### Command Line Options
-
-```bash
-./run-generator.sh [--additional-properties key=value,key2=value2]
-```
+### Docker Usage
 
 **Available Properties:**
 
 - `useMediatr=true|false` - Enable MediatR/CQRS pattern (default: true)
 - `packageName=YourApi` - Set the root namespace (default: PetstoreApi)
 
-### Example Commands
+**Basic Usage:**
+
+```bash
+# Mount your project directory (must contain your OpenAPI spec)
+docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+  generate \
+  -g aspnetcore-minimalapi \
+  -i /workspace/path/to/your-spec.yaml \
+  -o /workspace/output
+```
+
+**Example Commands:**
+
+```bash
+# Generate with MediatR support (from project root)
+docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+  generate -g aspnetcore-minimalapi \
+  -i /workspace/specs/petstore.yaml \
+  -o /workspace/output \
+  --additional-properties useMediatr=true
+
+# Generate with custom namespace
+docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+  generate -g aspnetcore-minimalapi \
+  -i /workspace/specs/petstore.yaml \
+  -o /workspace/output \
+  --additional-properties packageName=MyShopApi
+
+# Multiple properties
+docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+  generate -g aspnetcore-minimalapi \
+  -i /workspace/specs/petstore.yaml \
+  -o /workspace/output \
+  --additional-properties useMediatr=true,packageName=InventoryApi
+```
+
+**CI/CD Integration:**
+
+```yaml
+# GitHub Actions example
+- name: Generate API Code
+  run: |
+    docker run --rm -v ${{ github.workspace }}:/workspace minimal-api-generator:latest \
+      generate -g aspnetcore-minimalapi \
+      -i /workspace/specs/api-spec.yaml \
+      -o /workspace/generated \
+      --additional-properties useMediatr=true
+```
+
+### Local Development (Shell Scripts)
+
+```bash
+./run-generator.sh [--additional-properties key=value,key2=value2]
+```
+
+**Example Commands:**
 
 ```bash
 # Generate with custom namespace
@@ -240,6 +317,55 @@ Tests use:
 
 Each test run uses a fresh in-memory data store, ensuring test isolation.
 
+## Docker Image
+
+### Building the Image
+
+The Docker image packages the custom generator with OpenAPI Generator CLI:
+
+```bash
+cd docker
+./build.sh
+```
+
+**Build Arguments:**
+
+- `ARG_OPENAPI_GENERATOR_VERSION` - OpenAPI Generator CLI version (default: 7.10.0)
+
+**Custom Build:**
+
+```bash
+docker build \
+  --build-arg ARG_OPENAPI_GENERATOR_VERSION=7.10.0 \
+  -t minimal-api-generator:latest \
+  -f docker/Dockerfile \
+  .
+```
+
+### Image Architecture
+
+The Docker image:
+1. Uses OpenJDK 11 JRE (slim)
+2. Downloads OpenAPI Generator CLI
+3. Includes the custom generator JAR
+4. Combines both on classpath via ENTRYPOINT
+
+**Source Attribution:**
+Based on [Stack Overflow answer](https://stackoverflow.com/q/78887848) by Arturo Martínez Díaz (CC BY-SA 4.0).
+
+### Testing the Image
+
+```bash
+cd docker
+./test.sh
+```
+
+This validates:
+- Image builds successfully
+- Generator runs without errors
+- MediatR code is generated correctly
+- Key files are created in expected locations
+
 ## Customizing the Generator
 
 ### Modifying Templates
@@ -255,10 +381,18 @@ Templates are in `generator/src/main/resources/aspnet-minimalapi/`:
 
 After modifying templates:
 
+**Local Development:**
 ```bash
 cd generator
 devbox run mvn clean package
 ./regenerate.sh --test
+```
+
+**Docker:**
+```bash
+cd docker
+./build.sh
+./test.sh
 ```
 
 ### Extending the Java Code
