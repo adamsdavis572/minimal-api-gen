@@ -3,7 +3,8 @@
   "packages": [
     "jdk@11",
     "maven@latest",
-    "dotnet-sdk_8"
+    "dotnet-sdk_8",
+    "go-task@latest"
   ],
   "shell": {
     "init_hook": [

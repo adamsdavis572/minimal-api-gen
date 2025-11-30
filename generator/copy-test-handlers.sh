@@ -5,9 +5,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEST_HANDLERS_DIR="$SCRIPT_DIR/tests/TestHandlers"
-OUTPUT_HANDLERS_DIR="$SCRIPT_DIR/../test-output/src/PetstoreApi/Handlers"
-OUTPUT_SERVICES_DIR="$SCRIPT_DIR/../test-output/src/PetstoreApi/Services"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TEST_HANDLERS_DIR="$PROJECT_ROOT/petstore-tests/TestHandlers"
+OUTPUT_HANDLERS_DIR="$PROJECT_ROOT/test-output/src/PetstoreApi/Handlers"
+OUTPUT_SERVICES_DIR="$PROJECT_ROOT/test-output/src/PetstoreApi/Services"
 
 echo "Copying test handler implementations..."
 

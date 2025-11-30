@@ -19,9 +19,9 @@ fi
 echo "Building Docker image..."
 cd "$PROJECT_ROOT"
 
-docker build \
+podman build \
     --build-arg ARG_OPENAPI_GENERATOR_VERSION=7.10.0 \
-    -t minimal-api-generator:latest \
+    -t adamsdavis/minimal-api-generator:latest \
     -f docker/Dockerfile \
     .
 

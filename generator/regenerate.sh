@@ -21,7 +21,7 @@ echo ""
 # Step 3: Copy test project
 echo "Step 3: Copying test project..."
 mkdir -p ../test-output/tests
-cp -r tests/PetstoreApi.Tests ../test-output/tests/
+cp -r ../petstore-tests/PetstoreApi.Tests ../test-output/tests/
 echo "✓ Test project copied"
 echo ""
 

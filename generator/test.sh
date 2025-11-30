@@ -18,4 +18,4 @@ echo ""
 
 # Step 2: Run tests
 echo "Step 2: Running tests..."
-devbox run dotnet test ../test-output/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj --verbosity normal
+devbox run dotnet test ~/scratch/git/minimal-api-gen/test-output/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj --verbosity normal

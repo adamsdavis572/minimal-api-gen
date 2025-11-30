@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GENERATOR_JAR="$SCRIPT_DIR/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
 CLI_JAR="$HOME/.m2/repository/org/openapitools/openapi-generator-cli/7.17.0-SNAPSHOT/openapi-generator-cli-7.17.0-SNAPSHOT.jar"
-OPENAPI_SPEC="$PROJECT_ROOT/specs/petstore.yaml"
+OPENAPI_SPEC="$PROJECT_ROOT/petstore-tests/petstore.yaml"
 OUTPUT_DIR="$PROJECT_ROOT/test-output"
 
 # Check if generator JAR exists

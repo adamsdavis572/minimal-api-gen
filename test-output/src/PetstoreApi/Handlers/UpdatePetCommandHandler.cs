@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
 
@@ -16,25 +17,19 @@ namespace PetstoreApi.Handlers;
 /// </summary>
 public class UpdatePetCommandHandler : IRequestHandler<UpdatePetCommand, Pet>
 {
-    // TODO: Add dependencies via constructor injection
-    // Example:
-    // private readonly ILogger<UpdatePetCommandHandler> _logger;
-    // private readonly ApplicationDbContext _db;
-    //
-    // public UpdatePetCommandHandler(
-    //     ILogger<UpdatePetCommandHandler> logger,
-    //     ApplicationDbContext db)
-    // {
-    //     _logger = logger;
-    //     _db = db;
-    // }
+    private readonly IPetStore _petStore;
+
+    public UpdatePetCommandHandler(IPetStore petStore)
+    {
+        _petStore = petStore;
+    }
 
     /// <summary>
     /// Handles the UpdatePetCommand request
     /// </summary>
     public async Task<Pet> Handle(UpdatePetCommand request, CancellationToken cancellationToken)
     {
-        // TODO: Implement UpdatePet logic
-        throw new NotImplementedException("Handler for UpdatePet not yet implemented");
+        var pet = _petStore.Update(request.pet);
+        return await Task.FromResult(pet);
     }
 }

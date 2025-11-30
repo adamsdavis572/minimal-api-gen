@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
 
@@ -16,25 +17,19 @@ namespace PetstoreApi.Handlers;
 /// </summary>
 public class GetPetByIdQueryHandler : IRequestHandler<GetPetByIdQuery, Pet>
 {
-    // TODO: Add dependencies via constructor injection
-    // Example:
-    // private readonly ILogger<GetPetByIdQueryHandler> _logger;
-    // private readonly ApplicationDbContext _db;
-    //
-    // public GetPetByIdQueryHandler(
-    //     ILogger<GetPetByIdQueryHandler> logger,
-    //     ApplicationDbContext db)
-    // {
-    //     _logger = logger;
-    //     _db = db;
-    // }
+    private readonly IPetStore _petStore;
+
+    public GetPetByIdQueryHandler(IPetStore petStore)
+    {
+        _petStore = petStore;
+    }
 
     /// <summary>
     /// Handles the GetPetByIdQuery request
     /// </summary>
     public async Task<Pet> Handle(GetPetByIdQuery request, CancellationToken cancellationToken)
     {
-        // TODO: Implement GetPetById logic
-        throw new NotImplementedException("Handler for GetPetById not yet implemented");
+        var pet = _petStore.GetById(request.petId);
+        return await Task.FromResult(pet);
     }
 }

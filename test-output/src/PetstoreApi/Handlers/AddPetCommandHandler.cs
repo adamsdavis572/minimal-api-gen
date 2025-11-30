@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
 
@@ -16,25 +17,19 @@ namespace PetstoreApi.Handlers;
 /// </summary>
 public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
 {
-    // TODO: Add dependencies via constructor injection
-    // Example:
-    // private readonly ILogger<AddPetCommandHandler> _logger;
-    // private readonly ApplicationDbContext _db;
-    //
-    // public AddPetCommandHandler(
-    //     ILogger<AddPetCommandHandler> logger,
-    //     ApplicationDbContext db)
-    // {
-    //     _logger = logger;
-    //     _db = db;
-    // }
+    private readonly IPetStore _petStore;
+
+    public AddPetCommandHandler(IPetStore petStore)
+    {
+        _petStore = petStore;
+    }
 
     /// <summary>
     /// Handles the AddPetCommand request
     /// </summary>
     public async Task<Pet> Handle(AddPetCommand request, CancellationToken cancellationToken)
     {
-        // TODO: Implement AddPet logic
-        throw new NotImplementedException("Handler for AddPet not yet implemented");
+        var pet = _petStore.Add(request.pet);
+        return await Task.FromResult(pet);
     }
 }

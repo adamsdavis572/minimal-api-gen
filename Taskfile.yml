@@ -5,7 +5,7 @@ version: '3'
 vars:
   GENERATOR_DIR: ./generator
   TEST_OUTPUT_DIR: ./test-output
-  PETSTORE_SPEC: ./specs/petstore.yaml
+  PETSTORE_SPEC: ./petstore-tests/petstore.yaml
   TEST_PROJECT: "{{.TEST_OUTPUT_DIR}}/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj"
 
 tasks:
@@ -53,13 +53,13 @@ tasks:
   copy-test-stubs:
     desc: Copy test handlers and test project over generated stubs
     vars:
-      TEST_HANDLERS_DIR: "{{.GENERATOR_DIR}}/tests/TestHandlers"
+      TEST_HANDLERS_DIR: ./petstore-tests/TestHandlers
       OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Handlers"
       OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Services"
     cmds:
       - echo "Copying test project..."
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
-      - cp -r {{.GENERATOR_DIR}}/tests/PetstoreApi.Tests {{.TEST_OUTPUT_DIR}}/tests/
+      - cp -r ./petstore-tests/PetstoreApi.Tests {{.TEST_OUTPUT_DIR}}/tests/
       - echo "✓ Test project copied"
       - echo "Copying test handler implementations..."
       - mkdir -p {{.OUTPUT_SERVICES_DIR}}
