@@ -35,6 +35,9 @@ build/
 *.war
 *.ear
 
+# Generated test output
+test-output/
+
 # C#/.NET build artifacts
 bin/
 obj/
