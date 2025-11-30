@@ -1,0 +1,105 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GENERATOR_DIR: ./generator
+  TEST_OUTPUT_DIR: ./test-output
+  PETSTORE_SPEC: ./specs/petstore.yaml
+  TEST_PROJECT: "{{.TEST_OUTPUT_DIR}}/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  build-generator:
+    desc: Build the custom OpenAPI generator JAR
+    sources:
+      - generator/src/main/java/**/*.java
+      - generator/src/main/resources/**/*
+      - generator/pom.xml
+    generates:
+      - generator/target/aspnet-minimalapi-openapi-generator-1.0.0.jar
+    cmds:
+      - echo "Building custom OpenAPI generator..."
+      - |
+        cd generator
+        mvn clean package -q
+      - echo "✓ Generator built successfully"
+
+  generate-server:
+    desc: Generate server code from OpenAPI spec (with MediatR)
+    deps:
+      - build-generator
+    vars:
+      GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
+      CLI_JAR: $HOME/.m2/repository/org/openapitools/openapi-generator-cli/7.17.0-SNAPSHOT/openapi-generator-cli-7.17.0-SNAPSHOT.jar
+    cmds:
+      - echo "Deleting old generated code..."
+      - rm -rf {{.TEST_OUTPUT_DIR}}
+      - echo "Generating server code..."
+      - |
+        java -cp "{{.GENERATOR_JAR}}:{{.CLI_JAR}}" \
+          org.openapitools.codegen.OpenAPIGenerator generate \
+          -g aspnetcore-minimalapi \
+          -i {{.PETSTORE_SPEC}} \
+          -o {{.TEST_OUTPUT_DIR}} \
+          --additional-properties useMediatr=true
+      - echo "✓ Server code generated"
+
+  copy-test-stubs:
+    desc: Copy test handlers and test project over generated stubs
+    vars:
+      TEST_HANDLERS_DIR: "{{.GENERATOR_DIR}}/tests/TestHandlers"
+      OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/Org.OpenAPITools/Handlers"
+      OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/Org.OpenAPITools/Services"
+    cmds:
+      - echo "Copying test project..."
+      - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
+      - cp -r {{.GENERATOR_DIR}}/tests/PetstoreApi.Tests {{.TEST_OUTPUT_DIR}}/tests/
+      - echo "✓ Test project copied"
+      - echo "Copying test handler implementations..."
+      - mkdir -p {{.OUTPUT_SERVICES_DIR}}
+      - cp {{.TEST_HANDLERS_DIR}}/GetPetByIdQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/AddPetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/UpdatePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/DeletePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
+      - echo "✓ Test handlers copied successfully"
+
+  test-server-stubs:
+    desc: Run tests on generated server with test handlers
+    deps:
+      - copy-test-stubs
+    cmds:
+      - echo "Running tests..."
+      - dotnet test {{.TEST_PROJECT}} --verbosity normal
+
+  # Convenience tasks
+
+  regenerate:
+    desc: Complete regeneration workflow (generate + copy stubs + test)
+    cmds:
+      - task: generate-server
+      - task: test-server-stubs
+
+  quick-test:
+    desc: Quick test run (assumes code already generated)
+    cmds:
+      - task: copy-test-stubs
+      - echo "Running tests..."
+      - dotnet test {{.TEST_PROJECT}} --verbosity normal
+
+  clean:
+    desc: Clean generated code and build artifacts
+    cmds:
+      - echo "Cleaning generated code..."
+      - rm -rf {{.TEST_OUTPUT_DIR}}
+      - echo "Cleaning generator build artifacts..."
+      - |
+        cd generator
+        mvn clean
+      - echo "✓ Cleaned"
