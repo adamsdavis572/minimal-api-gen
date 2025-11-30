@@ -93,10 +93,22 @@ tasks:
       - echo "Running tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
 
-  clean:
-    desc: Clean generated code and build artifacts
+  clean-generated:
+    desc: Clean only generated Minimal API code (keeps test files)
     cmds:
-      - echo "Cleaning generated code..."
+      - echo "Cleaning generated Minimal API code..."
+      - rm -rf {{.TEST_OUTPUT_DIR}}/src
+      - rm -rf {{.TEST_OUTPUT_DIR}}/.openapi-generator
+      - rm -f {{.TEST_OUTPUT_DIR}}/.openapi-generator-ignore
+      - rm -f {{.TEST_OUTPUT_DIR}}/.gitignore
+      - rm -f {{.TEST_OUTPUT_DIR}}/README.md
+      - rm -f {{.TEST_OUTPUT_DIR}}/*.sln
+      - echo "✓ Generated API code cleaned"
+
+  clean:
+    desc: Clean all generated code and build artifacts
+    cmds:
+      - echo "Cleaning all generated code..."
       - rm -rf {{.TEST_OUTPUT_DIR}}
       - echo "Cleaning generator build artifacts..."
       - |
