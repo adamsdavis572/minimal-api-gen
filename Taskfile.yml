@@ -47,15 +47,15 @@ tasks:
           -g aspnetcore-minimalapi \
           -i {{.PETSTORE_SPEC}} \
           -o {{.TEST_OUTPUT_DIR}} \
-          --additional-properties useMediatr=true
+          --additional-properties packageName=PetstoreApi,useMediatr=true
       - echo "✓ Server code generated"
 
   copy-test-stubs:
     desc: Copy test handlers and test project over generated stubs
     vars:
       TEST_HANDLERS_DIR: "{{.GENERATOR_DIR}}/tests/TestHandlers"
-      OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/Org.OpenAPITools/Handlers"
-      OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/Org.OpenAPITools/Services"
+      OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Handlers"
+      OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Services"
     cmds:
       - echo "Copying test project..."
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
