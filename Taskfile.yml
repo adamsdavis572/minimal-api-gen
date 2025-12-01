@@ -126,3 +126,57 @@ tasks:
         cd generator
         mvn clean
       - echo "✓ Cleaned"
+
+  # Docker tasks
+
+  docker-build:
+    desc: Build Docker image with custom OpenAPI generator
+    vars:
+      IMAGE_NAME: adamsdavis/minimal-api-generator
+      IMAGE_TAG: latest
+      OPENAPI_GENERATOR_VERSION: 7.10.0
+    deps:
+      - build-generator
+    cmds:
+      - echo "Building Docker image..."
+      - |
+        podman build \
+          --build-arg ARG_OPENAPI_GENERATOR_VERSION={{.OPENAPI_GENERATOR_VERSION}} \
+          -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          -f docker/Dockerfile \
+          .
+      - echo "✓ Docker image built - {{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
+
+  docker-push:
+    desc: Push Docker image to registry
+    vars:
+      IMAGE_NAME: adamsdavis/minimal-api-generator
+      IMAGE_TAG: latest
+    cmds:
+      - echo "Pushing Docker image to registry..."
+      - podman push {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+      - echo "✓ Image pushed - {{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
+
+  docker-test:
+    desc: Test Docker image by generating code
+    vars:
+      IMAGE_NAME: adamsdavis/minimal-api-generator
+      IMAGE_TAG: latest
+      DOCKER_TEST_OUTPUT: ./docker-test-output
+    cmds:
+      - echo "Testing Docker image..."
+      - rm -rf {{.DOCKER_TEST_OUTPUT}}
+      - mkdir -p {{.DOCKER_TEST_OUTPUT}}
+      - |
+        docker run --rm \
+          -v $(pwd):/workspace \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          generate \
+          -g aspnetcore-minimalapi \
+          -i /workspace/petstore-tests/petstore.yaml \
+          -o /workspace/{{.DOCKER_TEST_OUTPUT}} \
+          --additional-properties packageName=PetstoreApi,useMediatr=true
+      - echo "✓ Docker test complete. Output in {{.DOCKER_TEST_OUTPUT}}"
+      - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Program.cs || (echo "❌ Program.cs NOT found" && exit 1)
+      - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Commands/AddPetCommand.cs || (echo "❌ MediatR Commands NOT found" && exit 1)
+      - echo "✅ All validation checks passed"
