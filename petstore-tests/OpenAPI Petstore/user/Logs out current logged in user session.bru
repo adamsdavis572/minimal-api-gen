@@ -1,0 +1,15 @@
+meta {
+  name: Logs out current logged in user session
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/user/logout
+  body: none
+  auth: none
+}
+
+headers {
+  api_key: {{apiKey}}
+}

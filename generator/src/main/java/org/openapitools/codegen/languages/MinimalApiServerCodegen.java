@@ -152,6 +152,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Minimal API: EndpointMapper extension for MapAllEndpoints()
         supportingFiles.add(new SupportingFile("endpointMapper.mustache", 
             packageFolder + File.separator + "Extensions", "EndpointMapper.cs"));
+        
+        // Minimal API: ServiceCollectionExtensions for AddApplicationServices()
+        supportingFiles.add(new SupportingFile("serviceCollectionExtensions.mustache", 
+            packageFolder + File.separator + "Extensions", "ServiceCollectionExtensions.cs")
+            .doNotOverwrite());
     }
 
     @Override

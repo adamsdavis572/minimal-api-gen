@@ -1,0 +1,19 @@
+meta {
+  name: Deletes a pet
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/pet/:petId
+  body: none
+  auth: none
+}
+
+params:path {
+  petId: 
+}
+
+headers {
+  ~api_key: 
+}

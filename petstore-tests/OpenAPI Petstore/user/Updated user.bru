@@ -1,0 +1,32 @@
+meta {
+  name: Updated user
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/user/:username
+  body: json
+  auth: none
+}
+
+params:path {
+  username: 
+}
+
+headers {
+  api_key: {{apiKey}}
+}
+
+body:json {
+  {
+    "id": 0,
+    "username": "",
+    "firstName": "",
+    "lastName": "",
+    "email": "",
+    "password": "",
+    "phone": "",
+    "userStatus": 0
+  }
+}

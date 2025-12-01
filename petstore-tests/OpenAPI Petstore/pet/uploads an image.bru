@@ -1,0 +1,20 @@
+meta {
+  name: uploads an image
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/pet/:petId/uploadImage
+  body: multipartForm
+  auth: none
+}
+
+params:path {
+  petId: 
+}
+
+body:multipart-form {
+  additionalMetadata: 
+  file: 
+}

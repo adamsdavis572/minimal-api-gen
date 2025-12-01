@@ -17,7 +17,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 {{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();{{#useMediatr}}
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));{{/useMediatr}}{{#useAuthentication}}
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));{{/useMediatr}}
+builder.Services.AddApplicationServices();{{#useAuthentication}}
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

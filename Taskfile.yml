@@ -30,7 +30,7 @@ tasks:
         mvn clean package -q
       - echo "✓ Generator built successfully"
 
-  generate-server:
+  generate-petstore-minimal-api:
     desc: Generate server code from OpenAPI spec (with MediatR)
     deps:
       - build-generator
@@ -54,12 +54,15 @@ tasks:
     desc: Copy test handlers and test project over generated stubs
     vars:
       TEST_HANDLERS_DIR: ./petstore-tests/TestHandlers
+      TEST_EXTENSIONS_DIR: ./petstore-tests/TestExtensions
+      TEST_PROJECT_DIR: ./petstore-tests/PetstoreApi.Tests
       OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Handlers"
       OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Services"
+      OUTPUT_EXTENSIONS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Extensions"
     cmds:
       - echo "Copying test project..."
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
-      - cp -r ./petstore-tests/PetstoreApi.Tests {{.TEST_OUTPUT_DIR}}/tests/
+      - cp -r {{.TEST_PROJECT_DIR}} {{.TEST_OUTPUT_DIR}}/tests/
       - echo "✓ Test project copied"
       - echo "Copying test handler implementations..."
       - mkdir -p {{.OUTPUT_SERVICES_DIR}}
@@ -69,6 +72,9 @@ tasks:
       - cp {{.TEST_HANDLERS_DIR}}/DeletePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
+      - echo "Copying ServiceCollectionExtensions with IPetStore registration..."
+      - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
+      - echo "✓ ServiceCollectionExtensions copied successfully"
 
   test-server-stubs:
     desc: Run tests on generated server with test handlers
@@ -77,6 +83,16 @@ tasks:
     cmds:
       - echo "Running tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
+
+  run-petstore-api:
+    desc: Launch the generated Petstore API server
+    vars:
+      API_PROJECT: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj"
+    deps:
+      - copy-test-stubs
+    cmds:
+      - echo "Starting Petstore API server..."
+      - dotnet run --project {{.API_PROJECT}}
 
   # Convenience tasks
 
@@ -93,19 +109,14 @@ tasks:
       - echo "Running tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
 
-  clean-generated:
+  clean-generated-api:
     desc: Clean only generated Minimal API code (keeps test files)
     cmds:
       - echo "Cleaning generated Minimal API code..."
-      - rm -rf {{.TEST_OUTPUT_DIR}}/src
-      - rm -rf {{.TEST_OUTPUT_DIR}}/.openapi-generator
-      - rm -f {{.TEST_OUTPUT_DIR}}/.openapi-generator-ignore
-      - rm -f {{.TEST_OUTPUT_DIR}}/.gitignore
-      - rm -f {{.TEST_OUTPUT_DIR}}/README.md
-      - rm -f {{.TEST_OUTPUT_DIR}}/*.sln
+      - rm -rf {{.TEST_OUTPUT_DIR}}
       - echo "✓ Generated API code cleaned"
 
-  clean:
+  clean-all:
     desc: Clean all generated code and build artifacts
     cmds:
       - echo "Cleaning all generated code..."

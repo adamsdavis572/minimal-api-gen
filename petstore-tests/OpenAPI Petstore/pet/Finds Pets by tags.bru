@@ -1,0 +1,15 @@
+meta {
+  name: Finds Pets by tags
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/pet/findByTags
+  body: none
+  auth: none
+}
+
+params:query {
+  tags: 
+}

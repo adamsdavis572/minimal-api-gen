@@ -1,0 +1,20 @@
+meta {
+  name: Updates a pet in the store with form data
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/pet/:petId
+  body: formUrlEncoded
+  auth: none
+}
+
+params:path {
+  petId: 
+}
+
+body:form-urlencoded {
+  name: 
+  status: 
+}

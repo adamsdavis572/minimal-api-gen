@@ -1,0 +1,15 @@
+meta {
+  name: Returns pet inventories by status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/store/inventory
+  body: none
+  auth: none
+}
+
+headers {
+  api_key: {{apiKey}}
+}
