@@ -30,13 +30,23 @@ tasks:
         mvn clean package -q
       - echo "✓ Generator built successfully"
 
+  get-generator-cli:
+    desc: Downloads main geneartor CLI from Maven
+    vars:
+      CLI_URL: https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.17.0/openapi-generator-cli-7.17.0.jar
+    cmds:
+      - wget {{.CLI_URL}} -O {{.GENERATOR_DIR}}/openapi-generator-cli.jar
+    status:
+      - test -f "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
+
   generate-petstore-minimal-api:
     desc: Generate server code from OpenAPI spec (with MediatR)
     deps:
       - build-generator
+      - get-generator-cli
     vars:
       GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
-      CLI_JAR: $HOME/.m2/repository/org/openapitools/openapi-generator-cli/7.17.0-SNAPSHOT/openapi-generator-cli-7.17.0-SNAPSHOT.jar
+      CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
     cmds:
       - echo "Deleting old generated code..."
       - rm -rf {{.TEST_OUTPUT_DIR}}
