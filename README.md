@@ -28,71 +28,103 @@ A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs 
 
 ## Quick Start
 
-### Option 1: Docker (Recommended for CI/CD)
+### Local Development (Recommended)
+
+Use Taskfile commands for all local development and testing:
 
 ```bash
-# Build the Docker image
-cd docker
-./build.sh
+# Complete workflow: build generator, generate code, and run tests
+devbox run task regenerate
 
-# Generate your API with MediatR (run from project root)
-cd ..
-docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
-  generate -g aspnetcore-minimalapi \
-  -i /workspace/specs/petstore.yaml \
-  -o /workspace/output \
-  --additional-properties useMediatr=true
+# Or step-by-step:
 
-# Test the Docker image
-cd docker
-./test.sh
-```
+# 1. Build the custom generator
+devbox run task build-generator
 
-### Option 2: Local Development
+# 2. Generate API code with MediatR/CQRS support
+devbox run task generate-petstore-minimal-api
 
-#### 1. Build the Generator
+# 3. Run tests
+devbox run task test-server-stubs
 
-```bash
-cd generator
-devbox run mvn clean package
-```
-
-#### 2. Generate Your API
-
-```bash
-# Basic generation (without MediatR)
-./run-generator.sh
-
-# With MediatR/CQRS support
-./run-generator.sh --additional-properties useMediatr=true
+# 4. Run the generated API server
+devbox run task run-petstore-api
 ```
 
 Generated code appears in the `test-output/` directory.
 
-### 3. Run Tests
+### Docker Distribution (For CI/CD and External Systems)
+
+Package the generator as a Docker image for use in CI/CD pipelines or other systems:
 
 ```bash
-# Quick test (assumes code already generated)
-./test.sh
+# Build the Docker image
+devbox run task docker-build
 
-# Complete regeneration workflow with tests
-./regenerate.sh --test
+# Test the Docker image
+devbox run task docker-test
+
+# Push to registry for distribution
+devbox run task docker-push
 ```
 
 ## Generator Usage
 
-### Docker Usage
+### Local Development with Taskfile (Recommended)
 
-**Available Properties:**
+For local development and testing, use Taskfile commands directly:
 
+```bash
+devbox run task generate-petstore-minimal-api
+```
+
+**Available Tasks:**
+
+```bash
+# Build the generator
+devbox run task build-generator
+
+# Generate API code with MediatR support
+devbox run task generate-petstore-minimal-api
+
+# Copy test handlers and stubs
+devbox run task copy-test-stubs
+
+# Run tests
+devbox run task test-server-stubs
+
+# Complete workflow (generate + test)
+devbox run task regenerate
+
+# Quick test (no regeneration)
+devbox run task quick-test
+
+# Run the API server
+devbox run task run-petstore-api
+
+# List all available tasks
+devbox run task --list
+```
+
+**Generator Properties:**
+
+The generator supports various configuration options. See the [Configuration Reference](docs/CONFIGURATION.md) for complete details.
+
+Quick examples:
 - `useMediatr=true|false` - Enable MediatR/CQRS pattern (default: true)
 - `packageName=YourApi` - Set the root namespace (default: PetstoreApi)
+- `useProblemDetails=true` - Enable RFC 7807 error responses
+- `useApiVersioning=true` - Enable API versioning
+
+### Docker Usage (For CI/CD and Distribution)
+
+Use the Docker image to integrate the generator into CI/CD pipelines or other external systems:
 
 **Basic Usage:**
 
 ```bash
 # Mount your project directory (must contain your OpenAPI spec)
-docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+docker run --rm -v $(pwd):/workspace adamsdavis/minimal-api-generator:latest \
   generate \
   -g aspnetcore-minimalapi \
   -i /workspace/path/to/your-spec.yaml \
@@ -102,22 +134,22 @@ docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
 **Example Commands:**
 
 ```bash
-# Generate with MediatR support (from project root)
-docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+# Generate with MediatR support
+docker run --rm -v $(pwd):/workspace adamsdavis/minimal-api-generator:latest \
   generate -g aspnetcore-minimalapi \
   -i /workspace/specs/petstore.yaml \
   -o /workspace/output \
   --additional-properties useMediatr=true
 
 # Generate with custom namespace
-docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+docker run --rm -v $(pwd):/workspace adamsdavis/minimal-api-generator:latest \
   generate -g aspnetcore-minimalapi \
   -i /workspace/specs/petstore.yaml \
   -o /workspace/output \
   --additional-properties packageName=MyShopApi
 
 # Multiple properties
-docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
+docker run --rm -v $(pwd):/workspace adamsdavis/minimal-api-generator:latest \
   generate -g aspnetcore-minimalapi \
   -i /workspace/specs/petstore.yaml \
   -o /workspace/output \
@@ -130,59 +162,33 @@ docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
 # GitHub Actions example
 - name: Generate API Code
   run: |
-    docker run --rm -v ${{ github.workspace }}:/workspace minimal-api-generator:latest \
+    docker run --rm -v ${{ github.workspace }}:/workspace adamsdavis/minimal-api-generator:latest \
       generate -g aspnetcore-minimalapi \
       -i /workspace/specs/api-spec.yaml \
       -o /workspace/generated \
       --additional-properties useMediatr=true
 ```
 
-### Local Development (Shell Scripts)
+## Taskfile Workflows
+
+### Complete Regeneration
 
 ```bash
-./run-generator.sh [--additional-properties key=value,key2=value2]
-```
-
-**Example Commands:**
-
-```bash
-# Generate with custom namespace
-./run-generator.sh --additional-properties packageName=MyShopApi
-
-# Generate with MediatR enabled
-./run-generator.sh --additional-properties useMediatr=true
-
-# Multiple properties
-./run-generator.sh --additional-properties useMediatr=true,packageName=InventoryApi
-```
-
-## Workflow Scripts
-
-### `regenerate.sh`
-
-Complete regeneration from scratch:
-
-```bash
-# Regenerate without running tests
-./regenerate.sh
-
-# Regenerate and run tests
-./regenerate.sh --test
+devbox run task regenerate
 ```
 
 **What it does:**
-1. Deletes old generated code
-2. Runs the generator
-3. Copies test project from master location
-4. Copies test handlers from master location
-5. Optionally runs tests
+1. Builds the generator (if needed)
+2. Generates server code from OpenAPI spec
+3. Copies test handlers and test project
+4. Runs the test suite
 
-### `test.sh`
+### Quick Test
 
-Quick test execution for iterative development:
+For iterative development when code is already generated:
 
 ```bash
-./test.sh
+devbox run task quick-test
 ```
 
 **What it does:**
@@ -191,44 +197,59 @@ Quick test execution for iterative development:
 
 Use this when you've made changes to handlers and want to re-test without regenerating everything.
 
-### `copy-test-handlers.sh`
+### Individual Tasks
 
-Internal script that copies test handler implementations over generated stubs. Called by other scripts, not typically used directly.
+```bash
+# Just copy test files
+devbox run task copy-test-stubs
+
+# Just run tests
+devbox run task test-server-stubs
+
+# Clean generated code
+devbox run task clean-generated-api
+
+# Clean everything including build artifacts
+devbox run task clean-all
+```
 
 ## Project Structure
 
 ```
 minimal-api-gen/
+├── Taskfile.yml                        # Build automation (replaces bash scripts)
 ├── generator/                          # OpenAPI Generator implementation
 │   ├── src/
 │   │   └── main/
 │   │       ├── java/                   # Generator Java code
 │   │       └── resources/
 │   │           └── aspnet-minimalapi/  # Mustache templates
-│   ├── tests/                          # Master copies (persist across regenerations)
-│   │   ├── TestHandlers/               # Handler implementations
-│   │   │   ├── AddPetCommandHandler.cs
-│   │   │   ├── GetPetByIdQueryHandler.cs
-│   │   │   ├── UpdatePetCommandHandler.cs
-│   │   │   ├── DeletePetCommandHandler.cs
-│   │   │   └── InMemoryPetStore.cs
-│   │   └── PetstoreApi.Tests/          # Test project
-│   │       ├── PetEndpointTests.cs
-│   │       ├── CustomWebApplicationFactory.cs
-│   │       └── PetstoreApi.Tests.csproj
-│   ├── run-generator.sh                # Generate code
-│   ├── regenerate.sh                   # Complete workflow
-│   ├── test.sh                         # Quick test
-│   └── copy-test-handlers.sh           # Copy handlers
+│   └── pom.xml                         # Maven configuration
+├── petstore-tests/                     # Master copies (persist across regenerations)
+│   ├── TestHandlers/                   # Handler implementations
+│   │   ├── AddPetCommandHandler.cs
+│   │   ├── GetPetByIdQueryHandler.cs
+│   │   ├── UpdatePetCommandHandler.cs
+│   │   ├── DeletePetCommandHandler.cs
+│   │   └── InMemoryPetStore.cs
+│   ├── PetstoreApi.Tests/              # Test project
+│   │   ├── PetEndpointTests.cs
+│   │   ├── CustomWebApplicationFactory.cs
+│   │   └── PetstoreApi.Tests.csproj
+│   └── petstore.yaml                   # OpenAPI specification
+├── docker/                             # Docker build files
+│   ├── Dockerfile
+│   └── README.md
 └── test-output/                        # Generated code (ephemeral)
     ├── src/PetstoreApi/
     │   ├── Commands/                   # MediatR commands
     │   ├── Queries/                    # MediatR queries
-    │   ├── Handlers/                   # Handler stubs (overwritten by tests/TestHandlers/)
+    │   ├── Handlers/                   # Handler stubs (overwritten by petstore-tests/TestHandlers/)
     │   ├── Models/                     # DTOs
     │   ├── Features/                   # Endpoint definitions
+    │   ├── Extensions/                 # ServiceCollectionExtensions
     │   └── Program.cs
-    └── tests/PetstoreApi.Tests/        # Copied from generator/tests/
+    └── tests/PetstoreApi.Tests/        # Copied from petstore-tests/
 ```
 
 ## Generated Code Structure
@@ -294,8 +315,7 @@ group.MapDelete("/pet/{petId}", async (IMediator mediator, long petId) =>
 The generator includes a complete test suite with 7 baseline tests:
 
 ```bash
-cd generator
-./regenerate.sh --test
+devbox run task regenerate
 ```
 
 **Tests cover:**
@@ -317,15 +337,21 @@ Tests use:
 
 Each test run uses a fresh in-memory data store, ensuring test isolation.
 
-## Docker Image
+## Docker Distribution
 
-### Building the Image
+The Docker image packages the generator for distribution to CI/CD pipelines, team members, or other systems that need to generate code without local Java/Maven setup.
 
-The Docker image packages the custom generator with OpenAPI Generator CLI:
+### Building and Publishing
 
 ```bash
-cd docker
-./build.sh
+# Build the Docker image
+devbox run task docker-build
+
+# Test the image works correctly
+devbox run task docker-test
+
+# Push to registry for distribution
+devbox run task docker-push
 ```
 
 **Build Arguments:**
@@ -335,9 +361,9 @@ cd docker
 **Custom Build:**
 
 ```bash
-docker build \
+podman build \
   --build-arg ARG_OPENAPI_GENERATOR_VERSION=7.10.0 \
-  -t minimal-api-generator:latest \
+  -t adamsdavis/minimal-api-generator:latest \
   -f docker/Dockerfile \
   .
 ```
@@ -353,18 +379,12 @@ The Docker image:
 **Source Attribution:**
 Based on [Stack Overflow answer](https://stackoverflow.com/q/78887848) by Arturo Martínez Díaz (CC BY-SA 4.0).
 
-### Testing the Image
+### Use Cases
 
-```bash
-cd docker
-./test.sh
-```
-
-This validates:
-- Image builds successfully
-- Generator runs without errors
-- MediatR code is generated correctly
-- Key files are created in expected locations
+- **CI/CD Pipelines**: Generate code as part of automated builds
+- **Team Distribution**: Share generator without Java/Maven dependencies
+- **External Systems**: Integrate code generation into other tools
+- **Consistent Environments**: Ensure same generator version across systems
 
 ## Customizing the Generator
 
@@ -383,16 +403,14 @@ After modifying templates:
 
 **Local Development:**
 ```bash
-cd generator
-devbox run mvn clean package
-./regenerate.sh --test
+devbox run task build-generator
+devbox run task regenerate
 ```
 
 **Docker:**
 ```bash
-cd docker
-./build.sh
-./test.sh
+devbox run task docker-build
+devbox run task docker-test
 ```
 
 ### Extending the Java Code
@@ -412,8 +430,8 @@ Key methods:
 ### Adding New Features
 
 1. Modify templates or Java code
-2. Rebuild generator: `devbox run mvn clean package`
-3. Test generation: `./regenerate.sh --test`
+2. Rebuild generator: `devbox run task build-generator`
+3. Test generation: `devbox run task regenerate`
 4. Verify all tests pass
 5. Commit changes
 
@@ -421,32 +439,38 @@ Key methods:
 
 View full generation output:
 ```bash
-./run-generator.sh --additional-properties useMediatr=true
+devbox run task generate-petstore-minimal-api
+```
+
+Run the API server for manual testing:
+```bash
+devbox run task run-petstore-api
 ```
 
 Build and test manually:
 ```bash
 cd test-output
-devbox run dotnet build
+devbox run dotnet build src/PetstoreApi/PetstoreApi.csproj
 devbox run dotnet test tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj
 ```
 
 ## OpenAPI Specification
 
-Place your OpenAPI spec at:
+The petstore example spec is located at:
 ```
-generator/petstore.yaml
+petstore-tests/petstore.yaml
 ```
 
-The generator uses this spec to create your API. Modify it to match your domain.
+To use your own OpenAPI spec, update the `PETSTORE_SPEC` variable in `Taskfile.yml` to point to your specification file.
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make changes and ensure tests pass: `./regenerate.sh --test`
-4. Commit with clear messages
-5. Push and create a pull request
+3. Make changes and ensure tests pass: `devbox run task regenerate`
+4. Test Docker build if applicable: `devbox run task docker-build && devbox run task docker-test`
+5. Commit with clear messages
+6. Push and create a pull request
 
 ## License
 
@@ -455,3 +479,8 @@ The generator uses this spec to create your API. Modify it to match your domain.
 ## Acknowledgments
 
 Built on [OpenAPI Generator](https://github.com/OpenAPITools/openapi-generator) framework.
+
+## Documentation
+
+- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete guide to all generator options and comparison with OpenAPI Generator
+- [OpenAPI Generator Docs](https://github.com/OpenAPITools/openapi-generator/blob/master/docs/customization.md) - Upstream documentation

@@ -31,11 +31,13 @@ tasks:
       - echo "✓ Generator built successfully"
 
   get-generator-cli:
-    desc: Downloads main geneartor CLI from Maven
+    desc: Downloads main generator CLI from Maven
     vars:
       CLI_URL: https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.17.0/openapi-generator-cli-7.17.0.jar
     cmds:
+      - echo "Downloading OpenAPI Generator CLI..."
       - wget {{.CLI_URL}} -O {{.GENERATOR_DIR}}/openapi-generator-cli.jar
+      - echo "✓ Generator CLI downloaded successfully"
     status:
       - test -f "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
 
