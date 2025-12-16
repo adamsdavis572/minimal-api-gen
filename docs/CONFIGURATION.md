@@ -41,9 +41,10 @@ The generator is opinionated toward modern ASP.NET Core patterns with sensible d
 
 ### Routing & Organization
 
+> **Note**: Route groups (MapGroup) are the required architecture for this generator and are not configurable. All endpoints are automatically organized using `MapGroup` by OpenAPI tag.
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `useRouteGroups` | boolean | `true` | Organize endpoints using `MapGroup` by OpenAPI tag |
 | `routePrefix` | string | `"api"` | Route prefix for all endpoints (e.g., `/api/pets`) |
 | `versioningPrefix` | string | `"v"` | Version prefix when `useApiVersioning=true` (e.g., `v` → `/v1/...`) |
 | `apiVersion` | string | `"1"` | API version string when `useApiVersioning=true` |
@@ -139,7 +140,6 @@ The **ASPNETServer** generator (`aspnetcore`) in OpenAPI Generator provides a **
 | `useValidators` | ✅ | ✅ (FastEndpoints) |
 | `useResponseCaching` | ✅ | ✅ (FastEndpoints) |
 | `useApiVersioning` | ✅ | ✅ |
-| `useRouteGroups` | ✅ | ❌ (specific to minimal APIs) |
 | `useGlobalExceptionHandler` | ✅ | ❌ (custom solution per user) |
 | `routePrefix` | ✅ | ✅ |
 | `versioningPrefix` | ✅ | ✅ |
@@ -168,7 +168,7 @@ The ASPNETServer generator includes additional options not present in minimal-ap
 
 - **minimal-api-gen** is optimized for **ASP.NET Core Minimal APIs** with MediatR/CQRS patterns
 - **ASPNETServer** is optimized for **Controller-based APIs** with extensive legacy support
-- If migrating from ASPNETServer: Most core options map cleanly, but `useMediatr` and `useRouteGroups` are minimal-api-gen exclusive
+- If migrating from ASPNETServer: Most core options map cleanly, but `useMediatr` is a minimal-api-gen exclusive
 
 ---
 

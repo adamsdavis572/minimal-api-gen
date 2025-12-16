@@ -32,7 +32,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String USE_VALIDATORS = "useValidators";
     public static final String USE_RESPONSE_CACHING = "useResponseCaching";
     public static final String USE_API_VERSIONING = "useApiVersioning";
-    public static final String USE_ROUTE_GROUPS = "useRouteGroups";
     public static final String USE_GLOBAL_EXCEPTION_HANDLER = "useGlobalExceptionHandler";
     public static final String USE_MEDIATR = "useMediatr";
     public static final String ROUTE_PREFIX = "routePrefix";
@@ -49,7 +48,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private boolean useValidators = false;
     private boolean useResponseCaching = false;
     private boolean useApiVersioning = false;
-    private boolean useRouteGroups = true;
     private boolean useGlobalExceptionHandler = true;
     private boolean useMediatr = false;
     private String routePrefix = "api";
@@ -83,6 +81,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         
         // NOTE: Per-operation MediatR files (command, query, handler) are added dynamically
         // in processOperation() based on useMediatr flag - see generateMediatrFilesForOperation()
+        // NOTE: Validator template files are added in processOpts() after flags are parsed
 
         addSwitch(USE_PROBLEM_DETAILS, "Enable RFC 7807 compatible error responses.", useProblemDetails);
         addSwitch(USE_RECORDS, "Use record instead of class for the requests and response.", useRecords);
@@ -90,7 +89,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         addSwitch(USE_VALIDATORS, "Enable FluentValidation request validators.", useValidators);
         addSwitch(USE_RESPONSE_CACHING, "Enable response caching.", useResponseCaching);
         addSwitch(USE_API_VERSIONING, "Enable API versioning.", useApiVersioning);
-        addSwitch(USE_ROUTE_GROUPS, "Use MapGroup for organizing endpoints by tag.", useRouteGroups);
         addSwitch(USE_GLOBAL_EXCEPTION_HANDLER, "Enable global exception handling middleware.", useGlobalExceptionHandler);
         addSwitch(USE_MEDIATR, "Enable MediatR CQRS pattern with commands, queries, and handlers.", useMediatr);
         addOption(ROUTE_PREFIX, "The route prefix for the API. Used only if useApiVersioning is true", routePrefix);
@@ -111,7 +109,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         setUseValidators();
         setUseResponseCaching();
         setUseApiVersioning();
-        setUseRouteGroups();
         setUseGlobalExceptionHandler();
         setUseMediatr();
         setRoutePrefix();
@@ -122,6 +119,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         
         // Extract basePath from server URL for endpoint routing
         setBasePath();
+        
+        // FluentValidation generates one validator file per tag (added after flags are parsed)
+        if (useValidators && useMediatr) {
+            apiTemplateFiles.put("validator.mustache", "Validators.cs");
+            // Also generate validators for each model with required properties
+            modelTemplateFiles.put("modelValidator.mustache", "Validator.cs");
+        }
 
         super.processOpts();
 
@@ -157,6 +161,12 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         supportingFiles.add(new SupportingFile("serviceCollectionExtensions.mustache", 
             packageFolder + File.separator + "Extensions", "ServiceCollectionExtensions.cs")
             .doNotOverwrite());
+        
+        // FluentValidation: ValidationBehavior for MediatR pipeline
+        if (useValidators && useMediatr) {
+            supportingFiles.add(new SupportingFile("ValidationBehavior.mustache",
+                packageFolder + File.separator + "Behaviors", "ValidationBehavior.cs"));
+        }
     }
 
     @Override
@@ -240,13 +250,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         }
     }
 
-    private void setUseRouteGroups() {
-        if (additionalProperties.containsKey(USE_ROUTE_GROUPS)) {
-            useRouteGroups = convertPropertyToBooleanAndWriteBack(USE_ROUTE_GROUPS);
-        } else {
-            additionalProperties.put(USE_ROUTE_GROUPS, useRouteGroups);
-        }
-    }
 
     private void setUseGlobalExceptionHandler() {
         if (additionalProperties.containsKey(USE_GLOBAL_EXCEPTION_HANDLER)) {

@@ -42,24 +42,25 @@ tasks:
       - test -f "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
 
   generate-petstore-minimal-api:
-    desc: Generate server code from OpenAPI spec (with MediatR)
+    desc: Generate server code from OpenAPI spec (with MediatR and optional properties)
     deps:
       - build-generator
       - get-generator-cli
     vars:
       GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
       CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
+      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true"}}'
     cmds:
       - echo "Deleting old generated code..."
       - rm -rf {{.TEST_OUTPUT_DIR}}
-      - echo "Generating server code..."
+      - echo "Generating server code with properties {{.ADDITIONAL_PROPS}}..."
       - |
         java -cp "{{.GENERATOR_JAR}}:{{.CLI_JAR}}" \
           org.openapitools.codegen.OpenAPIGenerator generate \
           -g aspnetcore-minimalapi \
           -i {{.PETSTORE_SPEC}} \
           -o {{.TEST_OUTPUT_DIR}} \
-          --additional-properties packageName=PetstoreApi,useMediatr=true
+          --additional-properties {{.ADDITIONAL_PROPS}}
       - echo "✓ Server code generated"
 
   copy-test-stubs:
@@ -106,12 +107,95 @@ tasks:
       - echo "Starting Petstore API server..."
       - dotnet run --project {{.API_PROJECT}}
 
+  test-bruno:
+    desc: Run Bruno API tests against local server
+    vars:
+      BRUNO_COLLECTION: ./bruno/OpenAPI Petstore
+    cmds:
+      - echo "Running Bruno API tests..."
+      - bru run --env local "{{.BRUNO_COLLECTION}}"
+
+  test-bruno-with-server:
+    desc: Start server and run Bruno tests, then stop server
+    vars:
+      API_PROJECT: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj"
+      BRUNO_COLLECTION_DIR: ./bruno/OpenAPI Petstore
+    deps:
+      - copy-test-stubs
+    cmds:
+      - |
+        set -e
+        echo "Starting Petstore API server in background..."
+        
+        # Start server in background and capture PID
+        dotnet run --project {{.API_PROJECT}} > /tmp/petstore-api.log 2>&1 &
+        SERVER_PID="$!"
+        echo "Dotnet run PID: ${SERVER_PID}"
+        
+        # Cleanup function - kill entire process group
+        cleanup() {
+          echo ""
+          echo "Stopping server..."
+          # Kill the process group to get all child processes
+          if [ -n "${SERVER_PID}" ]; then
+            pkill -P "${SERVER_PID}" 2>/dev/null || true
+            kill "${SERVER_PID}" 2>/dev/null || true
+          fi
+          sleep 2
+          # Force kill any remaining processes on port 5198
+          lsof -ti:5198 | xargs kill -9 2>/dev/null || true
+          echo "✓ Server stopped"
+        }
+        
+        # Ensure cleanup happens on exit
+        trap cleanup EXIT
+        
+        # Wait for server to be ready
+        echo "Waiting for server to start..."
+        READY=0
+        for i in {1..30}; do
+          if curl -s http://localhost:5198/swagger/index.html > /dev/null 2>&1; then
+            echo "✓ Server is ready (attempt $i)"
+            READY=1
+            break
+          fi
+          echo "  Waiting... ($i/30)"
+          sleep 1
+        done
+        
+        if [ "$READY" = "0" ]; then
+          echo "❌ Server failed to start within 30 seconds"
+          echo "Server log:"
+          tail -20 /tmp/petstore-api.log || true
+          exit 1
+        fi
+        
+        # Run Bruno tests from collection directory
+        echo ""
+        echo "Running Bruno API tests..."
+        cd "{{.BRUNO_COLLECTION_DIR}}"
+        if bru run --env local; then
+          echo ""
+          echo "✓ Bruno tests passed"
+          exit 0
+        else
+          echo ""
+          echo "❌ Bruno tests failed"
+          exit 1
+        fi
+
   # Convenience tasks
 
   regenerate:
-    desc: Complete regeneration workflow (generate + copy stubs + test)
+    desc: Complete regeneration workflow (force build + generate + copy stubs + test)
+    vars:
+      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true"}}'
     cmds:
-      - task: generate-server
+      - rm -f generator/target/*.jar
+      - task: build-generator
+      - task: generate-petstore-minimal-api
+        vars:
+          ADDITIONAL_PROPS: "{{.ADDITIONAL_PROPS}}"
       - task: test-server-stubs
 
   quick-test:

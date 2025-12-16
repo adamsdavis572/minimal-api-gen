@@ -132,6 +132,54 @@
           "store_path": "/nix/store/7l6ra7fiz2kybshmp1vb41i0i4qc4yax-maven-3.9.11"
         }
       }
+    },
+    "wget@latest": {
+      "last_modified": "2025-11-23T21:50:36Z",
+      "resolved": "github:NixOS/nixpkgs/ee09932cedcef15aaf476f9343d1dea2cb77e261#wget",
+      "source": "devbox-search",
+      "version": "1.25.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/c0w95qqwyxz3bk5bbgdph53v61gpx5hr-wget-1.25.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/c0w95qqwyxz3bk5bbgdph53v61gpx5hr-wget-1.25.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/fck1qyis0hsmp3blc30qx7lmbdkx31mn-wget-1.25.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/fck1qyis0hsmp3blc30qx7lmbdkx31mn-wget-1.25.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/vkpi9pk1nr1vbf9nf0ldjyclqshl3ph8-wget-1.25.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/vkpi9pk1nr1vbf9nf0ldjyclqshl3ph8-wget-1.25.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/bhkfrdvapl4zw304qiyqdlxcfr0hdan6-wget-1.25.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/bhkfrdvapl4zw304qiyqdlxcfr0hdan6-wget-1.25.0"
+        }
+      }
     }
   }
 }

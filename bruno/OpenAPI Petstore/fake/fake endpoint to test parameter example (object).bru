@@ -1,0 +1,43 @@
+meta {
+  name: fake endpoint to test parameter example (object)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/fake/parameter_example_test
+  body: none
+  auth: inherit
+}
+
+params:query {
+  data: 
+}
+
+example {
+  name: default Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/fake/parameter_example_test
+    method: GET
+    mode: none
+    params:query: {
+      data: 
+    }
+  }
+  
+  response: {
+    status: {
+      code: default
+      text: Unknown
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

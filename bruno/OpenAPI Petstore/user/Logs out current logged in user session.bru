@@ -1,0 +1,49 @@
+meta {
+  name: Logs out current logged in user session
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/user/logout
+  body: none
+  auth: apikey
+}
+
+headers {
+  api_key: {{apiKey}}
+}
+
+auth:apikey {
+  key: api_key
+  value: {{apiKey}}
+  placement: header
+}
+
+example {
+  name: default Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/user/logout
+    method: GET
+    mode: none
+    headers: {
+      api_key: {{apiKey}}
+    }
+  }
+  
+  response: {
+    status: {
+      code: default
+      text: Unknown
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

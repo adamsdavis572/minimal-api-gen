@@ -7,9 +7,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />{{#useValidators}}
         <PackageReference Include="FluentValidation" Version="11.9.0" />
-        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />{{#useAuthentication}}
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />{{/useValidators}}{{#useAuthentication}}
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />{{/useAuthentication}}{{#useMediatr}}
         <PackageReference Include="MediatR" Version="12.2.0" />{{/useMediatr}}
     </ItemGroup>

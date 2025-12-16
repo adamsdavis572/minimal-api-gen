@@ -1,0 +1,55 @@
+{{#useValidators}}using FluentValidation;{{/useValidators}}
+using {{packageName}}.Models;
+{{#useMediatr}}
+using {{packageName}}.Commands;
+using {{packageName}}.Queries;
+{{/useMediatr}}
+
+namespace {{packageName}}.Validators;
+
+{{#useValidators}}
+{{#operations}}
+{{#operation}}
+{{#bodyParam}}
+{{#vendorExtensions.isCommand}}
+public class {{operationId}}CommandValidator : AbstractValidator<{{operationId}}Command>
+{
+    public {{operationId}}CommandValidator()
+    {
+        // Validate body parameter and its nested required properties
+        RuleFor(x => x.{{paramName}}).NotNull();
+        {{^isContainer}}
+        RuleFor(x => x.{{paramName}}).SetValidator(new {{dataType}}Validator());
+        {{/isContainer}}
+    {{#requiredParams}}
+        {{^isBodyParam}}
+        RuleFor(x => x.{{paramName}}).NotEmpty();
+        {{/isBodyParam}}
+    {{/requiredParams}}
+    }
+}
+
+{{/vendorExtensions.isCommand}}
+{{#vendorExtensions.isQuery}}
+public class {{operationId}}QueryValidator : AbstractValidator<{{operationId}}Query>
+{
+    public {{operationId}}QueryValidator()
+    {
+        // Validate body parameter and its nested required properties
+        RuleFor(x => x.{{paramName}}).NotNull();
+        {{^isContainer}}
+        RuleFor(x => x.{{paramName}}).SetValidator(new {{dataType}}Validator());
+        {{/isContainer}}
+    {{#requiredParams}}
+        {{^isBodyParam}}
+        RuleFor(x => x.{{paramName}}).NotEmpty();
+        {{/isBodyParam}}
+    {{/requiredParams}}
+    }
+}
+
+{{/vendorExtensions.isQuery}}
+{{/bodyParam}}
+{{/operation}}
+{{/operations}}
+{{/useValidators}}

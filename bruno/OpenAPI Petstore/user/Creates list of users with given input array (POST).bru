@@ -1,0 +1,79 @@
+meta {
+  name: Creates list of users with given input array (POST)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/user/createWithList
+  body: json
+  auth: apikey
+}
+
+headers {
+  api_key: {{apiKey}}
+}
+
+auth:apikey {
+  key: api_key
+  value: {{apiKey}}
+  placement: header
+}
+
+body:json {
+  [
+    {
+      "id": 0,
+      "username": "",
+      "firstName": "",
+      "lastName": "",
+      "email": "",
+      "password": "",
+      "phone": "",
+      "userStatus": 0
+    }
+  ]
+}
+
+example {
+  name: default Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/user/createWithList
+    method: POST
+    mode: json
+    headers: {
+      api_key: {{apiKey}}
+    }
+  
+    body:json: {
+      [
+        {
+          "id": 0,
+          "username": "",
+          "firstName": "",
+          "lastName": "",
+          "email": "",
+          "password": "",
+          "phone": "",
+          "userStatus": 0
+        }
+      ]
+    }
+  }
+  
+  response: {
+    status: {
+      code: default
+      text: Unknown
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

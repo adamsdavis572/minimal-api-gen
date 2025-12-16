@@ -1,0 +1,21 @@
+{{#models}}{{#model}}{{#useValidators}}
+using FluentValidation;
+
+namespace {{packageName}}.Validators;
+
+/// <summary>
+/// Validator for {{classname}} model
+/// </summary>
+public class {{classname}}Validator : AbstractValidator<Models.{{classname}}>
+{
+    public {{classname}}Validator()
+    {
+{{#requiredVars}}
+{{^isEnum}}
+        RuleFor(x => x.{{name}}){{#isString}}.NotEmpty(){{/isString}}{{^isString}}.NotNull(){{/isString}};
+{{/isEnum}}
+{{/requiredVars}}
+    }
+}
+{{/useValidators}}{{/model}}{{/models}}
+

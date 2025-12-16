@@ -1,0 +1,43 @@
+meta {
+  name: Fake endpoint to test nullable example (object)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/fake/nullable_example_test
+  body: none
+  auth: inherit
+}
+
+example {
+  name: 200 Response
+  description: Successful operation
+  
+  request: {
+    url: {{baseUrl}}/fake/nullable_example_test
+    method: GET
+    mode: none
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "name": "",
+          "nullableName": ""
+        }
+      '''
+    }
+  }
+}

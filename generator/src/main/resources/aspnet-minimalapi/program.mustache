@@ -1,6 +1,7 @@
 using FluentValidation;
 using {{packageName}}.Extensions;{{#useAuthentication}}
-using Microsoft.AspNetCore.Authentication.JwtBearer;{{/useAuthentication}}
+using Microsoft.AspNetCore.Authentication.JwtBearer;{{/useAuthentication}}{{#useValidators}}{{#useMediatr}}
+using Microsoft.AspNetCore.Mvc;{{/useMediatr}}{{/useValidators}}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,8 +16,9 @@ builder.Services.AddSwaggerGen(c =>
         Version = "{{{version}}}{{^version}}v1{{/version}}"
     });
 });
-{{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}
+{{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}{{#useValidators}}
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();{{#useMediatr}}
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof({{packageName}}.Behaviors.ValidationBehavior<,>));{{/useMediatr}}{{/useValidators}}{{#useMediatr}}
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));{{/useMediatr}}
 builder.Services.AddApplicationServices();{{#useAuthentication}}
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -31,6 +33,84 @@ builder.Services.AddResponseCaching();{{/useResponseCaching}}
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+{{#useValidators}}{{#useMediatr}}
+// Exception handler for validation and model binding errors
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
+
+        if (exception is FluentValidation.ValidationException validationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = "application/problem+json";
+            
+            var problemDetails = new Microsoft.AspNetCore.Http.HttpValidationProblemDetails(
+                validationException.Errors
+                    .GroupBy(x => x.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(x => x.ErrorMessage).ToArray()
+                    ))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation failed",
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+            };
+
+            await context.Response.WriteAsJsonAsync(problemDetails);
+        }
+        else if (exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequestException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = "application/problem+json";
+            
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Bad Request",
+                Detail = badRequestException.Message,
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+            };
+
+            await context.Response.WriteAsJsonAsync(problemDetails);
+        }
+        else if (exception is System.Text.Json.JsonException jsonException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = "application/problem+json";
+            
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid JSON",
+                Detail = "The request body contains invalid JSON",
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+            };
+
+            await context.Response.WriteAsJsonAsync(problemDetails);
+        }
+        else
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/problem+json";
+            
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An error occurred",
+                Detail = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred",
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1"
+            };
+
+            await context.Response.WriteAsJsonAsync(problemDetails);
+        }
+    });
+});
+{{/useMediatr}}{{/useValidators}}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

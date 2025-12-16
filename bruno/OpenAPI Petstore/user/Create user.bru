@@ -1,0 +1,75 @@
+meta {
+  name: Create user
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/user
+  body: json
+  auth: apikey
+}
+
+headers {
+  api_key: {{apiKey}}
+}
+
+auth:apikey {
+  key: api_key
+  value: {{apiKey}}
+  placement: header
+}
+
+body:json {
+  {
+    "id": 0,
+    "username": "",
+    "firstName": "",
+    "lastName": "",
+    "email": "",
+    "password": "",
+    "phone": "",
+    "userStatus": 0
+  }
+}
+
+example {
+  name: default Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/user
+    method: POST
+    mode: json
+    headers: {
+      api_key: {{apiKey}}
+    }
+  
+    body:json: {
+      {
+        "id": 0,
+        "username": "",
+        "firstName": "",
+        "lastName": "",
+        "email": "",
+        "password": "",
+        "phone": "",
+        "userStatus": 0
+      }
+    }
+  }
+  
+  response: {
+    status: {
+      code: default
+      text: Unknown
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

@@ -1,0 +1,223 @@
+meta {
+  name: Add a new pet to the store
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "category": {
+      "id": 1,
+      "name": "Dogs"
+    },
+    "name": "Bruno",
+    "photoUrls": ["https://example.com/bruno.jpg"],
+    "tags": [
+      {
+        "id": 1,
+        "name": "friendly"
+      }
+    ],
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+  res.body.name: eq Bruno
+  res.body.photoUrls: isArray
+  res.body.status: eq available
+}
+
+tests {
+  test("should return 201 Created", function() {
+    expect(res.status).to.equal(201);
+  });
+  
+  test("should return created pet with correct id", function() {
+    expect(res.body.id).to.equal(12345);
+    bru.setEnvVar('petId', res.body.id);
+  });
+  
+  test("should preserve pet properties", function() {
+    expect(res.body.name).to.equal('Bruno');
+    expect(res.body.status).to.equal('available');
+    expect(res.body.category.name).to.equal('Dogs');
+    expect(res.body.photoUrls).to.be.an('array').with.lengthOf(1);
+  });
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/pet
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "category": {
+          "id": 0,
+          "name": ""
+        },
+        "name": "",
+        "photoUrls": [],
+        "tags": [
+          {
+            "id": 0,
+            "name": ""
+          }
+        ],
+        "status": ""
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/xml
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: xml
+      content: '''
+        {
+          "id": 0,
+          "category": {
+            "id": 0,
+            "name": ""
+          },
+          "name": "",
+          "photoUrls": [],
+          "tags": [
+            {
+              "id": 0,
+              "name": ""
+            }
+          ],
+          "status": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/pet
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "category": {
+          "id": 0,
+          "name": ""
+        },
+        "name": "",
+        "photoUrls": [],
+        "tags": [
+          {
+            "id": 0,
+            "name": ""
+          }
+        ],
+        "status": ""
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": 0,
+          "category": {
+            "id": 0,
+            "name": ""
+          },
+          "name": "",
+          "photoUrls": [],
+          "tags": [
+            {
+              "id": 0,
+              "name": ""
+            }
+          ],
+          "status": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 405 Response
+  description: Invalid input
+  
+  request: {
+    url: {{baseUrl}}/pet
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "category": {
+          "id": 0,
+          "name": ""
+        },
+        "name": "",
+        "photoUrls": [],
+        "tags": [
+          {
+            "id": 0,
+            "name": ""
+          }
+        ],
+        "status": ""
+      }
+    }
+  }
+  
+  response: {
+    status: {
+      code: 405
+      text: Method Not Allowed
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

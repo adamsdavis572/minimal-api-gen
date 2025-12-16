@@ -1,0 +1,111 @@
+meta {
+  name: Logs user into the system
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/user/login
+  body: none
+  auth: inherit
+}
+
+params:query {
+  username: 
+  password: 
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/user/login
+    method: GET
+    mode: none
+    params:query: {
+      username: 
+      password: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/xml
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: xml
+      content: '''
+  
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/user/login
+    method: GET
+    mode: none
+    params:query: {
+      username: 
+      password: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+  
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Invalid username/password supplied
+  
+  request: {
+    url: {{baseUrl}}/user/login
+    method: GET
+    mode: none
+    params:query: {
+      username: 
+      password: 
+    }
+  }
+  
+  response: {
+    status: {
+      code: 400
+      text: Bad Request
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

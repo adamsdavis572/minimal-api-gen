@@ -1,0 +1,149 @@
+meta {
+  name: Place an order for a pet
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/store/order
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 0,
+    "petId": 0,
+    "quantity": 0,
+    "shipDate": "",
+    "status": "",
+    "complete": false
+  }
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/store/order
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "petId": 0,
+        "quantity": 0,
+        "shipDate": "",
+        "status": "",
+        "complete": false
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/xml
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: xml
+      content: '''
+        {
+          "id": 0,
+          "petId": 0,
+          "quantity": 0,
+          "shipDate": "",
+          "status": "",
+          "complete": false
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/store/order
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "petId": 0,
+        "quantity": 0,
+        "shipDate": "",
+        "status": "",
+        "complete": false
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": 0,
+          "petId": 0,
+          "quantity": 0,
+          "shipDate": "",
+          "status": "",
+          "complete": false
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Invalid Order
+  
+  request: {
+    url: {{baseUrl}}/store/order
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "id": 0,
+        "petId": 0,
+        "quantity": 0,
+        "shipDate": "",
+        "status": "",
+        "complete": false
+      }
+    }
+  }
+  
+  response: {
+    status: {
+      code: 400
+      text: Bad Request
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}
