@@ -83,6 +83,8 @@ tasks:
       - cp {{.TEST_HANDLERS_DIR}}/AddPetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/UpdatePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/DeletePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByStatusQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByTagsQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
       - echo "Copying ServiceCollectionExtensions with IPetStore registration..."
@@ -107,82 +109,6 @@ tasks:
       - echo "Starting Petstore API server..."
       - dotnet run --project {{.API_PROJECT}}
 
-  test-bruno:
-    desc: Run Bruno API tests against local server
-    vars:
-      BRUNO_COLLECTION: ./bruno/OpenAPI Petstore
-    cmds:
-      - echo "Running Bruno API tests..."
-      - bru run --env local "{{.BRUNO_COLLECTION}}"
-
-  test-bruno-with-server:
-    desc: Start server and run Bruno tests, then stop server
-    vars:
-      API_PROJECT: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj"
-      BRUNO_COLLECTION_DIR: ./bruno/OpenAPI Petstore
-    deps:
-      - copy-test-stubs
-    cmds:
-      - |
-        set -e
-        echo "Starting Petstore API server in background..."
-        
-        # Start server in background and capture PID
-        dotnet run --project {{.API_PROJECT}} > /tmp/petstore-api.log 2>&1 &
-        SERVER_PID="$!"
-        echo "Dotnet run PID: ${SERVER_PID}"
-        
-        # Cleanup function - kill entire process group
-        cleanup() {
-          echo ""
-          echo "Stopping server..."
-          # Kill the process group to get all child processes
-          if [ -n "${SERVER_PID}" ]; then
-            pkill -P "${SERVER_PID}" 2>/dev/null || true
-            kill "${SERVER_PID}" 2>/dev/null || true
-          fi
-          sleep 2
-          # Force kill any remaining processes on port 5198
-          lsof -ti:5198 | xargs kill -9 2>/dev/null || true
-          echo "✓ Server stopped"
-        }
-        
-        # Ensure cleanup happens on exit
-        trap cleanup EXIT
-        
-        # Wait for server to be ready
-        echo "Waiting for server to start..."
-        READY=0
-        for i in {1..30}; do
-          if curl -s http://localhost:5198/swagger/index.html > /dev/null 2>&1; then
-            echo "✓ Server is ready (attempt $i)"
-            READY=1
-            break
-          fi
-          echo "  Waiting... ($i/30)"
-          sleep 1
-        done
-        
-        if [ "$READY" = "0" ]; then
-          echo "❌ Server failed to start within 30 seconds"
-          echo "Server log:"
-          tail -20 /tmp/petstore-api.log || true
-          exit 1
-        fi
-        
-        # Run Bruno tests from collection directory
-        echo ""
-        echo "Running Bruno API tests..."
-        cd "{{.BRUNO_COLLECTION_DIR}}"
-        if bru run --env local; then
-          echo ""
-          echo "✓ Bruno tests passed"
-          exit 0
-        else
-          echo ""
-          echo "❌ Bruno tests failed"
-          exit 1
-        fi
 
   # Convenience tasks
 
@@ -276,3 +202,89 @@ tasks:
       - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Program.cs || (echo "❌ Program.cs NOT found" && exit 1)
       - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Commands/AddPetCommand.cs || (echo "❌ MediatR Commands NOT found" && exit 1)
       - echo "✅ All validation checks passed"
+
+
+  # 1. Orchestration Task
+  # This runs the full lifecycle: Start -> Wait -> Test -> Stop
+  test-ci:
+    desc: "Modern approach using defer for cleanup"
+    cmds:
+      - task: api:start
+      - defer: { task: api:stop } # This runs when test-ci finishes, success or fail
+      - task: api:wait
+      - task: bruno:run
+
+  single-bruno-test:
+    desc: "Run one or more Bruno tests with full lifecycle (usage: task single-bruno-test TEST='pet/add-pet.bru pet/delete-pet.bru')"
+    vars:
+      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+    cmds:
+      - task: api:start
+      - defer: { task: api:stop }
+      - task: api:wait
+      - task: bruno:run-single
+        vars: {TEST: '{{.TEST}}'}
+
+
+  # 2. Start API in Background
+  api:start:
+    desc: "Starts the .NET API in the background and saves the PID."
+    deps:
+      - copy-test-stubs
+    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
+    cmds:
+      # 'nohup' prevents the process from dying if the shell closes.
+      # '> /dev/null 2>&1' silences output (optional, remove to see logs).
+      # '&' runs it in the background.
+      # 'echo $! > .server.pid' saves the Process ID to a file.
+      - bash -c 'nohup dotnet run > /dev/null 2>&1 & echo $! > ../.server.pid'
+      - echo "API starting with PID $(cat ../.server.pid)..."
+
+  # 3. Wait for Health Check
+  api:wait:
+    desc: "Waits until the API is available on the port."
+    cmds:
+      - echo "Waiting for API to be healthy..."
+      # Loops until localhost:5198 gives a 200 OK. Adjust port/path as needed.
+      - |
+        until curl --output /dev/null --silent --head --fail -X GET http://localhost:5198/health; do
+          printf '.'
+          sleep 1
+        done
+      - echo "\nAPI is up!"
+
+  # 4. Run Bruno Tests
+  bruno:run:
+    desc: "Runs Bruno API tests."
+    dir: ./bruno/OpenAPI_Petstore
+    cmds:
+      - echo "Running Bruno tests..."
+      # Assumes your .bru files are in a 'tests' folder
+      - bru run --env Local
+
+  bruno:run-single:
+    desc: "Runs one or more Bruno test files."
+    vars:
+      BRUNO_DIR: ./bruno/OpenAPI_Petstore
+      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+    dir: '{{.BRUNO_DIR}}'
+    cmds:
+      - echo "Running Bruno test(s) - {{.TEST}}"
+      - bru run --env Local {{.TEST}}
+
+  # 5. Shutdown Server
+  api:stop:
+    desc: "Stops the background API using the saved PID."
+    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
+    cmds:
+      # Check if PID file exists, read it, kill process, remove file.
+      - |
+        if [ -f ../.server.pid ]; then
+          PID=$(cat ../.server.pid)
+          echo "Stopping API (PID $PID)..."
+          kill -9 $PID || true
+          rm ../.server.pid
+        else
+          echo "No PID file found. Kill any process on port 5198 as fallback..."
+          lsof -ti:5198 | xargs kill -9 || true
+        fi

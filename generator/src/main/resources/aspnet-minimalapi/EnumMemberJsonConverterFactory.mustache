@@ -1,0 +1,35 @@
+using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace {{packageName}}.Converters
+{
+    /// <summary>
+    /// Factory for creating EnumMemberJsonConverter instances for all enum types.
+    /// This ensures all enums in the API respect JsonPropertyName attributes.
+    /// </summary>
+    public class EnumMemberJsonConverterFactory : JsonConverterFactory
+    {
+        /// <summary>
+        /// Determines whether this factory can create a converter for the specified type.
+        /// </summary>
+        /// <param name="typeToConvert">The type to check.</param>
+        /// <returns>True if the type is an enum, false otherwise.</returns>
+        public override bool CanConvert(Type typeToConvert)
+        {
+            return typeToConvert.IsEnum;
+        }
+
+        /// <summary>
+        /// Creates a converter instance for the specified enum type.
+        /// </summary>
+        /// <param name="typeToConvert">The enum type to create a converter for.</param>
+        /// <param name="options">The serializer options.</param>
+        /// <returns>A new instance of EnumMemberJsonConverter for the specified enum type.</returns>
+        public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options)
+        {
+            var converterType = typeof(EnumMemberJsonConverter<>).MakeGenericType(typeToConvert);
+            return (JsonConverter)Activator.CreateInstance(converterType)!;
+        }
+    }
+}

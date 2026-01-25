@@ -24,23 +24,53 @@ tests/
 
 ## Commands
 
-⚠️ **CRITICAL**: All build tools MUST be run via devbox wrapper:
-- Maven: `devbox run mvn` (never direct `mvn`)
-- dotnet: `devbox run dotnet` (never direct `dotnet`)
-- Example: `cd /path/to/project && devbox run dotnet build`
-- devbox is installed in ~/scratch/git/minimal-api-gen/generator
+⚠️ **CRITICAL - ALWAYS USE TASK RUNNER VIA DEVBOX**:
+
+### Command Execution Rules (MUST FOLLOW)
+1. **NEVER run commands directly**: `mvn`, `dotnet`, `task`, generator scripts are NOT available globally
+2. **ALWAYS use devbox task runner**: `devbox run task <task-name>` (task runner is ONLY available inside devbox)
+3. **Task runner wraps all tools**: The Taskfile.yml already handles devbox for mvn/dotnet/java - don't add extra nesting
+4. **Use absolute paths**: Always `cd` to project root first: `cd /Users/adam/scratch/git/minimal-api-gen`
+
+### Available Task Commands
+```bash
+# See all available tasks
+devbox run task --list
+
+# Common workflow tasks
+devbox run task build-generator                    # Build the generator JAR
+devbox run task generate-petstore-minimal-api      # Generate code with default config
+devbox run task copy-test-stubs                    # Copy test handlers (also builds generated code)
+devbox run task test-server-stubs                  # Run integration tests
+devbox run task regenerate                         # Complete workflow: build + generate + test
+
+# Generate with custom configuration
+devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true"
+devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true"
+```
+
+### Why This Matters
+- **Exit code 127** = "command not found" → You tried to run a command that's only in devbox
+- Tools are isolated in devbox environment for reproducible builds
+- Task runner (go-task) coordinates multi-step workflows from Taskfile.yml
+- Direct command execution will ALWAYS fail outside devbox
 
 ### Running the Custom OpenAPI Generator
 
-**Build**: `cd generator && devbox run mvn clean package`
+**CORRECT**: Use task commands (recommended)
+```bash
+cd /Users/adam/scratch/git/minimal-api-gen
+devbox run task build-generator
+devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true"
+```
 
-**Generate Code**: `cd generator && ./run-generator.sh [--additional-properties key=value]`
-- Uses OpenAPI Generator CLI + custom generator on classpath
-- Reference: https://github.com/OpenAPITools/openapi-generator/blob/master/docs/customization.md#use-your-new-generator-with-the-cli
-- Examples:
-  - Default: `./run-generator.sh`
-  - With MediatR: `./run-generator.sh --additional-properties useMediatr=true`
-  - Multiple flags: `./run-generator.sh --additional-properties useMediatr=true,useAuthentication=false`
+**INCORRECT** ❌: Never do these
+```bash
+task build-generator                          # ❌ task not in PATH
+mvn clean package                            # ❌ mvn not in PATH  
+cd generator && ./run-generator.sh           # ❌ Deprecated script
+dotnet build test-output/                   # ❌ dotnet not in PATH
+```
 
 **Output**: Generated code appears in `test-output/` directory
 ## Code Style

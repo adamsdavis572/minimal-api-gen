@@ -3,6 +3,7 @@ package org.openapitools.codegen.languages;
 import org.openapitools.codegen.CodegenConfig;
 import org.openapitools.codegen.CodegenOperation;
 import org.openapitools.codegen.CodegenParameter;
+import org.openapitools.codegen.CodegenProperty;
 import org.openapitools.codegen.CodegenType;
 import org.openapitools.codegen.SupportingFile;
 import org.openapitools.codegen.model.ModelMap;
@@ -152,6 +153,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         supportingFiles.add(new SupportingFile("appsettings.Development.json", packageFolder, "appsettings.Development.json"));
 
         supportingFiles.add(new SupportingFile("program.mustache", packageFolder, "Program.cs"));
+        
+        // Enum converter that supports JsonPropertyName attributes
+        supportingFiles.add(new SupportingFile("EnumMemberJsonConverter.mustache",
+            packageFolder + File.separator + "Converters", "EnumMemberJsonConverter.cs"));
+        
+        // Factory for creating enum converters globally
+        supportingFiles.add(new SupportingFile("EnumMemberJsonConverterFactory.mustache",
+            packageFolder + File.separator + "Converters", "EnumMemberJsonConverterFactory.cs"));
         
         // Minimal API: EndpointMapper extension for MapAllEndpoints()
         supportingFiles.add(new SupportingFile("endpointMapper.mustache", 
@@ -461,9 +470,51 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Setup Mustache compiler once
         Mustache.Compiler compiler = Mustache.compiler().defaultValue("");
         
+        // Track unique DTOs to generate (keyed by schema name)
+        Map<String, Map<String, Object>> dtosToGenerate = new HashMap<>();
+        
         // Generate files for each operation
         for (CodegenOperation op : opList) {
             try {
+                // Process DTOs for this operation (T019-T021)
+                if (op.bodyParam != null) {
+                    String dtoName = getDtoNameFromOperation(op);
+                    op.vendorExtensions.put("dtoClassName", dtoName);
+                    
+                    // Mark body parameter as DTO (both in bodyParam and allParams)
+                    op.bodyParam.vendorExtensions.put("isDtoParam", true);
+                    op.bodyParam.vendorExtensions.put("dtoType", dtoName);
+                    
+                    // Enable validation for body parameters when validators are enabled
+                    if (useValidators) {
+                        op.bodyParam.hasValidation = true;
+                    }
+                    
+                    // Also mark in allParams list (bodyParam and allParams are separate)
+                    if (op.allParams != null) {
+                        for (CodegenParameter param : op.allParams) {
+                            if (param.isBodyParam) {
+                                param.vendorExtensions.put("isDtoParam", true);
+                                param.vendorExtensions.put("dtoType", dtoName);
+                                
+                                // Enable validation for body parameters when validators are enabled
+                                if (useValidators) {
+                                    param.hasValidation = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Collect DTO for generation (deduplicate by name)
+                    if (!dtosToGenerate.containsKey(dtoName)) {
+                        Map<String, Object> dtoData = prepareDtoData(op, dtoName, allModels);
+                        dtosToGenerate.put(dtoName, dtoData);
+                        
+                        // Also collect nested DTOs (e.g., CategoryDto, TagDto)
+                        collectNestedDtos(dtoData, allModels, dtosToGenerate);
+                    }
+                }
+                
                 generateMediatrFilesForOperation(compiler, op, results);
             } catch (Exception e) {
                 LOGGER.error("Failed to generate MediatR files for operation '{}': {}", 
@@ -471,7 +522,181 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             }
         }
         
+        // Generate DTO files
+        for (Map<String, Object> dtoData : dtosToGenerate.values()) {
+            try {
+                writeDtoFile(compiler, dtoData);
+            } catch (Exception e) {
+                LOGGER.error("Failed to generate DTO file for '{}': {}", 
+                    dtoData.get("classname"), e.getMessage(), e);
+            }
+        }
+        
+        // Generate Validator files if useValidators is enabled (T032-T033)
+        if (useValidators) {
+            for (Map<String, Object> dtoData : dtosToGenerate.values()) {
+                try {
+                    writeValidatorFile(compiler, dtoData);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to generate Validator file for '{}': {}", 
+                        dtoData.get("classname"), e.getMessage(), e);
+                }
+            }
+        }
+        
         return results;
+    }
+    
+    /**
+     * Generate DTO class name from operation (e.g., "AddPetDto" from addPet operation).
+     */
+    private String getDtoNameFromOperation(CodegenOperation operation) {
+        String operationName = toModelName(operation.operationId);
+        return operationName + "Dto";
+    }
+    
+    /**
+     * Prepare template data for DTO generation from operation's requestBody schema.
+     * Converts Model property types to DTO types for complete decoupling.
+     */
+    private Map<String, Object> prepareDtoData(CodegenOperation operation, String dtoName, List<ModelMap> allModels) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("packageName", packageName);
+        data.put("classname", dtoName);
+        data.put("operationId", operation.operationId);
+        data.put("description", operation.summary);
+        
+        // Get properties from the body parameter's model
+        if (operation.bodyParam != null) {
+            // Use bodyParam's data type to look up model properties
+            String bodyType = operation.bodyParam.dataType;
+            
+            // Find the model in allModels
+            for (ModelMap modelMap : allModels) {
+                if (modelMap.getModel() != null && 
+                    modelMap.getModel().getClassname().equals(bodyType)) {
+                    // Clone and convert model properties for DTO (convert complex types to DTO types)
+                    List<CodegenProperty> dtoVars = new ArrayList<>();
+                    for (CodegenProperty prop : modelMap.getModel().getVars()) {
+                        CodegenProperty dtoProp = prop.clone();
+                        
+                        // Strip regex delimiters from pattern (e.g., "/^pattern$/" -> "^pattern$")
+                        if (dtoProp.pattern != null && dtoProp.pattern.startsWith("/") && dtoProp.pattern.endsWith("/")) {
+                            dtoProp.pattern = dtoProp.pattern.substring(1, dtoProp.pattern.length() - 1);
+                        }
+                        
+                        // Convert complex types to DTO equivalents
+                        if (prop.complexType != null && !prop.isContainer) {
+                            // Single complex type: Category -> CategoryDto
+                            dtoProp.dataType = prop.complexType + "Dto";
+                            dtoProp.datatypeWithEnum = prop.complexType + "Dto";
+                        } else if (prop.isContainer && prop.complexType != null) {
+                            // Collection of complex types: List<Tag> -> List<TagDto>
+                            dtoProp.dataType = dtoProp.dataType.replace(prop.complexType, prop.complexType + "Dto");
+                            dtoProp.datatypeWithEnum = dtoProp.datatypeWithEnum.replace(prop.complexType, prop.complexType + "Dto");
+                        }
+                        dtoVars.add(dtoProp);
+                    }
+                    data.put("vars", dtoVars);
+                    data.put("hasVars", !dtoVars.isEmpty());
+                    break;
+                }
+            }
+        }
+        
+        return data;
+    }
+    
+    /**
+     * Recursively collect nested DTOs that need to be generated (e.g., CategoryDto, TagDto).
+     * This ensures complete decoupling - DTOs never reference Model types.
+     */
+    private void collectNestedDtos(Map<String, Object> parentDtoData, List<ModelMap> allModels, 
+                                   Map<String, Map<String, Object>> dtosToGenerate) {
+        @SuppressWarnings("unchecked")
+        List<CodegenProperty> vars = (List<CodegenProperty>) parentDtoData.get("vars");
+        if (vars == null) return;
+        
+        for (CodegenProperty prop : vars) {
+            String nestedModelName = null;
+            
+            // Check if this property references a complex type
+            if (prop.complexType != null && !prop.isContainer) {
+                // Single complex type: CategoryDto needs Category model
+                nestedModelName = prop.complexType;
+            } else if (prop.isContainer && prop.complexType != null) {
+                // Collection of complex types: List<TagDto> needs Tag model
+                nestedModelName = prop.complexType;
+            }
+            
+            // Generate nested DTO if not already tracked
+            if (nestedModelName != null) {
+                String nestedDtoName = nestedModelName + "Dto";
+                if (!dtosToGenerate.containsKey(nestedDtoName)) {
+                    // Find the nested model and generate its DTO
+                    for (ModelMap modelMap : allModels) {
+                        if (modelMap.getModel() != null && 
+                            modelMap.getModel().getClassname().equals(nestedModelName)) {
+                            // Create DTO data for nested model
+                            Map<String, Object> nestedDtoData = new HashMap<>();
+                            nestedDtoData.put("packageName", packageName);
+                            nestedDtoData.put("classname", nestedDtoName);
+                            nestedDtoData.put("description", modelMap.getModel().getDescription());
+                            
+                            // Convert nested model properties to DTO types
+                            List<CodegenProperty> nestedDtoVars = new ArrayList<>();
+                            for (CodegenProperty nestedProp : modelMap.getModel().getVars()) {
+                                CodegenProperty nestedDtoProp = nestedProp.clone();
+                                
+                                // Strip regex delimiters from pattern (e.g., "/^pattern$/" -> "^pattern$")
+                                if (nestedDtoProp.pattern != null && nestedDtoProp.pattern.startsWith("/") && nestedDtoProp.pattern.endsWith("/")) {
+                                    nestedDtoProp.pattern = nestedDtoProp.pattern.substring(1, nestedDtoProp.pattern.length() - 1);
+                                }
+                                
+                                // Recursively convert complex types
+                                if (nestedProp.complexType != null && !nestedProp.isContainer) {
+                                    nestedDtoProp.dataType = nestedProp.complexType + "Dto";
+                                    nestedDtoProp.datatypeWithEnum = nestedProp.complexType + "Dto";
+                                } else if (nestedProp.isContainer && nestedProp.complexType != null) {
+                                    nestedDtoProp.dataType = nestedDtoProp.dataType.replace(nestedProp.complexType, nestedProp.complexType + "Dto");
+                                    nestedDtoProp.datatypeWithEnum = nestedDtoProp.datatypeWithEnum.replace(nestedProp.complexType, nestedProp.complexType + "Dto");
+                                }
+                                nestedDtoVars.add(nestedDtoProp);
+                            }
+                            nestedDtoData.put("vars", nestedDtoVars);
+                            nestedDtoData.put("hasVars", !nestedDtoVars.isEmpty());
+                            
+                            dtosToGenerate.put(nestedDtoName, nestedDtoData);
+                            
+                            // Recursively process nested DTOs (e.g., if Category has a nested object)
+                            collectNestedDtos(nestedDtoData, allModels, dtosToGenerate);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Write DTO file to disk using dto.mustache template.
+     */
+    private void writeDtoFile(Mustache.Compiler compiler, Map<String, Object> dtoData) throws Exception {
+        String dtoName = (String) dtoData.get("classname");
+        writeMediatrFile(compiler, "dto.mustache", dtoData, "DTOs", dtoName + ".cs");
+        LOGGER.info("Generated DTO file: DTOs/{}.cs", dtoName);
+    }
+    
+    /**
+     * Write Validator file to disk using dtoValidator.mustache template.
+     * Generates FluentValidation validators for DTOs with comprehensive constraint support.
+     * (T032-T033)
+     */
+    private void writeValidatorFile(Mustache.Compiler compiler, Map<String, Object> dtoData) throws Exception {
+        String dtoName = (String) dtoData.get("classname");
+        String validatorName = dtoName + "Validator";
+        writeMediatrFile(compiler, "dtoValidator.mustache", dtoData, "Validators", validatorName + ".cs");
+        LOGGER.info("Generated Validator file: Validators/{}.cs", validatorName);
     }
     
     /**

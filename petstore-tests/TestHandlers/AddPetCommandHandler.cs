@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.DTOs;
 using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
@@ -29,7 +30,41 @@ public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
     /// </summary>
     public async Task<Pet> Handle(AddPetCommand request, CancellationToken cancellationToken)
     {
-        var pet = _petStore.Add(request.pet);
-        return await Task.FromResult(pet);
+        // DEBUG: Log incoming values
+        Console.WriteLine($"[AddPetHandler] Received ID: {request.pet.Id?.ToString() ?? "NULL"}");
+        Console.WriteLine($"[AddPetHandler] Received Status: {request.pet.Status ?? "NULL"}");
+        Console.WriteLine($"[AddPetHandler] Received Name: {request.pet.Name ?? "NULL"}");
+        
+        // Map DTO to Model
+        var pet = new Pet
+        {
+            Id = request.pet.Id ?? 0, // Use provided ID, or 0 to auto-generate
+            Category = request.pet.Category != null ? new Category { Id = request.pet.Category.Id.GetValueOrDefault(), Name = request.pet.Category.Name } : null,
+            Name = request.pet.Name,
+            PhotoUrls = request.pet.PhotoUrls,
+            Tags = request.pet.Tags?.Select(t => new Tag { Id = t.Id.GetValueOrDefault(), Name = t.Name }).ToList(),
+            Status = MapStatus(request.pet.Status)
+        };
+        
+        Console.WriteLine($"[AddPetHandler] Mapped to Pet.Id: {pet.Id}, Pet.Status: {pet.Status}");
+        
+        var result = _petStore.Add(pet);
+        
+        Console.WriteLine($"[AddPetHandler] After Add - Pet.Id: {result.Id}, Pet.Status: {result.Status}");
+        
+        return await Task.FromResult(result);
+    }
+
+    private static Pet.StatusEnum MapStatus(string? status)
+    {
+        if (string.IsNullOrEmpty(status)) return Pet.StatusEnum.AvailableEnum;
+        
+        return status.ToLower() switch
+        {
+            "available" => Pet.StatusEnum.AvailableEnum,
+            "pending" => Pet.StatusEnum.PendingEnum,
+            "sold" => Pet.StatusEnum.SoldEnum,
+            _ => Pet.StatusEnum.AvailableEnum
+        };
     }
 }

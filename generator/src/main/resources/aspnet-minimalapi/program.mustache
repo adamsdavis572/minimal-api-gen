@@ -1,11 +1,17 @@
-using FluentValidation;
-using {{packageName}}.Extensions;{{#useAuthentication}}
+{{#useValidators}}using FluentValidation;
+{{/useValidators}}using {{packageName}}.Extensions;{{#useAuthentication}}
 using Microsoft.AspNetCore.Authentication.JwtBearer;{{/useAuthentication}}{{#useValidators}}{{#useMediatr}}
 using Microsoft.AspNetCore.Mvc;{{/useMediatr}}{{/useValidators}}
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
+// Configure JSON serialization with enum member support
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new {{packageName}}.Converters.EnumMemberJsonConverterFactory());
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -125,6 +131,12 @@ app.UseRouting();{{#useAuthentication}}
 app.UseAuthentication();
 app.UseAuthorization();{{/useAuthentication}}{{#useResponseCaching}}
 app.UseResponseCaching();{{/useResponseCaching}}
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+    .WithName("HealthCheck")
+    .WithTags("Health")
+    .Produces(200);
 
 {{#useApiVersioning}}
 var {{routePrefix}}Group = app.MapGroup("/{{routePrefix}}");

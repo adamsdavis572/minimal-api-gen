@@ -1,12 +1,13 @@
 {{#operations}}
 #pragma warning disable ASP0020 // Complex types as query parameters
-using FluentValidation;
-using Microsoft.AspNetCore.Mvc;
+{{#useValidators}}using FluentValidation;
+{{/useValidators}}using Microsoft.AspNetCore.Mvc;
 using {{{packageName}}}.Models;
 {{#useMediatr}}
 using MediatR;
 using {{{packageName}}}.Commands;
 using {{{packageName}}}.Queries;
+using {{{packageName}}}.DTOs;
 {{/useMediatr}}
 
 namespace {{{packageName}}}.Endpoints;
@@ -24,7 +25,7 @@ public static class {{{classname}}}Endpoints
         {{#operation}}
         {{^hasFormParams}}
         // {{{httpMethod}}} {{{path}}}{{#summary}} - {{{summary}}}{{/summary}}
-        group.Map{{{httpMethod}}}("{{{path}}}", async ({{#useMediatr}}IMediator mediator{{#vendorExtensions.hasComplexQueryParam}}, HttpContext httpContext{{/vendorExtensions.hasComplexQueryParam}}{{/useMediatr}}{{^useMediatr}}HttpContext httpContext{{/useMediatr}}{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{/isBodyParam}}{{{dataType}}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{{dataType}}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
+        group.Map{{{httpMethod}}}("{{{path}}}", async ({{#useMediatr}}IMediator mediator{{#vendorExtensions.hasComplexQueryParam}}, HttpContext httpContext{{/vendorExtensions.hasComplexQueryParam}}{{/useMediatr}}{{^useMediatr}}HttpContext httpContext{{/useMediatr}}{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}{{/isBodyParam}}{{^isBodyParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isBodyParam}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
         {
             {{^bodyParam}}
             {{#allParams}}

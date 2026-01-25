@@ -70,24 +70,6 @@ As a generator developer, I want the petstore.yaml test spec to include comprehe
 
 ### User Story 3 - Global Exception Handling (Priority: P2)
 
-As a generator user, when I enable `useValidators=true` and my OpenAPI spec contains validation constraints (required fields, patterns, min/max values), I want the generator to automatically create FluentValidation validator classes for my request models, so that I get compile-time validation code without manual implementation.
-
-**Why this priority**: This is the highest priority because FluentValidation infrastructure is currently always included (adding dependency overhead) but never used. This creates wasted dependencies and misleads users about validation capabilities. Fixing this delivers immediate value by either removing unused dependencies or providing working validation.
-
-**Independent Test**: Can be fully tested by running the generator with `useValidators=true` on the petstore.yaml spec (which has required fields, patterns, and min/max constraints) and verifying that validator classes are generated (e.g., AddPetRequestValidator.cs with RuleFor rules), and that validation executes correctly when posting invalid data.
-
-**Acceptance Scenarios**:
-
-1. **Given** OpenAPI spec with required fields (e.g., Pet has required name and photoUrls), **When** generator runs with `useValidators=true`, **Then** validator class is generated with NotEmpty() rules for required fields
-2. **Given** OpenAPI spec with pattern constraint (e.g., User login has regex pattern), **When** generator runs with `useValidators=true`, **Then** validator class is generated with Matches() rule for pattern validation
-3. **Given** OpenAPI spec with min/max constraints (e.g., Order quantity between 1-5), **When** generator runs with `useValidators=true`, **Then** validator class is generated with GreaterThanOrEqualTo() and LessThanOrEqualTo() rules
-4. **Given** generator runs with `useValidators=false`, **When** templates are processed, **Then** FluentValidation packages are NOT included in project.csproj and no validator registration in Program.cs
-5. **Given** generated API with validators, **When** client posts invalid data (missing required field), **Then** API returns 400 Bad Request with RFC 7807 ProblemDetails containing validation errors
-
----
-
-### User Story 3 - Global Exception Handling (Priority: P2)
-
 As a generator user, when I enable `useGlobalExceptionHandler=true` (the default), I want the generated API to include ASP.NET Core's exception handler middleware that returns RFC 7807 ProblemDetails for unhandled exceptions (including ValidationException from DTO validators), so that my API has consistent error responses without manual configuration.
 
 **Why this priority**: Second priority because the flag exists and defaults to true, but does nothing. This misleads users who expect exception handling to be configured. Implementing this provides production-ready error handling out of the box.

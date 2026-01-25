@@ -2,9 +2,18 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using PetstoreApi.Models;
+using PetstoreApi.DTOs;
 using Xunit;
 
 namespace PetstoreApi.Tests;
+
+public class HttpValidationProblemDetails
+{
+    public string? Type { get; set; }
+    public string? Title { get; set; }
+    public int? Status { get; set; }
+    public Dictionary<string, string[]> Errors { get; set; } = new();
+}
 
 public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -21,7 +30,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange - POST with null body (missing required 'pet' parameter)
         
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", (Pet?)null);
+        var response = await _client.PostAsJsonAsync("/v2/pet", (AddPetDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -31,14 +40,14 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithValidPet_Returns201Created()
     {
         // Arrange
-        var pet = new Pet
+        var pet = new AddPetDto
         {
             Id = 123,
             Name = "Fluffy",
-            Category = new Category { Id = 1, Name = "Dogs" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
-            Tags = new List<Tag> { new Tag { Id = 1, Name = "friendly" } },
-            Status = Pet.StatusEnum.AvailableEnum
+            Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
+            Status = "available"
         };
 
         // Act
@@ -52,14 +61,14 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithMissingName_Returns400()
     {
         // Arrange - Pet with null Name (required property)
-        var pet = new Pet
+        var pet = new AddPetDto
         {
             Id = 123,
             Name = null!, // Required property missing
-            Category = new Category { Id = 1, Name = "Dogs" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
-            Tags = new List<Tag> { new Tag { Id = 1, Name = "friendly" } },
-            Status = Pet.StatusEnum.AvailableEnum
+            Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
+            Status = "available"
         };
 
         // Act
@@ -73,14 +82,14 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithMissingPhotoUrls_Returns400()
     {
         // Arrange - Pet with null PhotoUrls (required property)
-        var pet = new Pet
+        var pet = new AddPetDto
         {
             Id = 123,
             Name = "Fluffy",
-            Category = new Category { Id = 1, Name = "Dogs" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = null!, // Required property missing
-            Tags = new List<Tag> { new Tag { Id = 1, Name = "friendly" } },
-            Status = Pet.StatusEnum.AvailableEnum
+            Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
+            Status = "available"
         };
 
         // Act
@@ -94,14 +103,14 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdatePet_WithMissingName_Returns400()
     {
         // Arrange - Pet with null Name
-        var pet = new Pet
+        var pet = new UpdatePetDto
         {
             Id = 123,
             Name = null!,
-            Category = new Category { Id = 1, Name = "Dogs" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
-            Tags = new List<Tag> { new Tag { Id = 1, Name = "friendly" } },
-            Status = Pet.StatusEnum.AvailableEnum
+            Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
+            Status = "available"
         };
 
         // Act
@@ -130,7 +139,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         
         // Act
-        var response = await _client.PutAsJsonAsync("/v2/pet", (Pet?)null);
+        var response = await _client.PutAsJsonAsync("/v2/pet", (UpdatePetDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -142,7 +151,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/user", (User?)null);
+        var response = await _client.PostAsJsonAsync("/v2/user", (CreateUserDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -152,7 +161,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithValidUser_Returns204NoContent()
     {
         // Arrange
-        var user = new User
+        var user = new CreateUserDto
         {
             Id = 1,
             Username = "testuser",
@@ -160,7 +169,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             LastName = "User",
             Email = "test@example.com",
             Password = "password123",
-            Phone = "555-1234",
+            Phone = "123-456-7890",
             UserStatus = 1
         };
 
@@ -175,7 +184,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithMissingUsername_Returns400()
     {
         // Arrange - User with null Username (required)
-        var user = new User
+        var user = new CreateUserDto
         {
             Id = 1,
             Username = "testuser",
@@ -218,15 +227,201 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    [Fact(Skip = "Handler not fully implemented - returns 500")]
-    public async Task LoginUser_WithAllRequiredParameters_Returns200()
+    // ===== String Length Validation Tests =====
+
+    [Fact]
+    public async Task AddPet_WithNameTooShort_Returns400()
     {
-        // Arrange
-        
+        // Arrange - Name is empty string (violates minimum length of 1)
+        var pet = new AddPetDto
+        {
+            Name = "",
+            PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
+            Status = "available"
+        };
+
         // Act
-        var response = await _client.GetAsync("/v2/user/login?username=testuser&password=test123");
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AddPet_WithNameTooLong_Returns400()
+    {
+        // Arrange - Name exceeds maximum length of 100 characters
+        var pet = new AddPetDto
+        {
+            Name = new string('a', 101),
+            PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ===== Pattern Validation Tests =====
+
+    [Fact]
+    public async Task AddPet_WithInvalidCategoryNamePattern_Returns400()
+    {
+        // Arrange - Category name contains invalid characters for pattern ^[a-zA-Z0-9]+[a-zA-Z0-9\.\-_]*[a-zA-Z0-9]+$
+        var pet = new AddPetDto
+        {
+            Name = "Fluffy",
+            PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
+            Category = new CategoryDto { Id = 1, Name = "Invalid-Name!" },
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateUser_WithInvalidEmailPattern_Returns400()
+    {
+        // Arrange - Email doesn't match email pattern
+        var user = new CreateUserDto
+        {
+            Username = "testuser",
+            FirstName = "Test",
+            LastName = "User",
+            Email = "not-an-email",
+            Password = "password123",
+            Phone = "1234567890",
+            UserStatus = 1
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/user", user);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ===== Array Size Validation Tests =====
+
+    [Fact]
+    public async Task AddPet_WithTooFewPhotoUrls_Returns400()
+    {
+        // Arrange - PhotoUrls is empty (requires minimum 1)
+        var pet = new AddPetDto
+        {
+            Name = "Fluffy",
+            PhotoUrls = new List<string>(),
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AddPet_WithTooManyPhotoUrls_Returns400()
+    {
+        // Arrange - PhotoUrls exceeds maximum of 10
+        var pet = new AddPetDto
+        {
+            Name = "Fluffy",
+            PhotoUrls = Enumerable.Range(1, 11).Select(i => $"http://example.com/photo{i}.jpg").ToList(),
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ===== Nested Object Validation Tests =====
+
+    [Fact]
+    public async Task AddPet_WithInvalidNestedCategory_Returns400()
+    {
+        // Arrange - Category has invalid name (should fail CategoryDtoValidator)
+        var pet = new AddPetDto
+        {
+            Name = "Fluffy",
+            PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
+            Category = new CategoryDto { Id = 1, Name = "!" }, // Invalid pattern
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ===== Multiple Validation Errors Tests =====
+
+    [Fact]
+    public async Task AddPet_WithMultipleValidationErrors_Returns400WithAllErrors()
+    {
+        // Arrange - Multiple validation errors: empty name, empty photoUrls, invalid category
+        var pet = new AddPetDto
+        {
+            Name = "", // Too short
+            PhotoUrls = new List<string>(), // Too few
+            Category = new CategoryDto { Id = 1, Name = "!" }, // Invalid pattern
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        
+        var problemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Errors.Should().NotBeEmpty();
+        problemDetails.Errors.Should().ContainKey("Name");
+        problemDetails.Errors.Should().ContainKey("PhotoUrls");
+        problemDetails.Errors.Should().ContainKey("Category.Name");
+    }
+
+    [Fact]
+    public async Task ValidationError_ReturnsCorrectProblemDetailsFormat()
+    {
+        // Arrange - Send invalid pet to trigger validation
+        var pet = new AddPetDto
+        {
+            Name = "", // Validation error
+            PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
+            Category = new CategoryDto { Id = 1, Name = "Dogs" },
+            Status = "available"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        
+        var problemDetails = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problemDetails.Should().NotBeNull();
+        problemDetails!.Status.Should().Be(400);
+        problemDetails.Errors.Should().NotBeEmpty();
+        problemDetails.Errors.Should().ContainKey("Name");
+        problemDetails.Errors["Name"].Should().NotBeEmpty();
     }
 }

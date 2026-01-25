@@ -1,11 +1,11 @@
-# Data Model: Configuration Options Fixes
+# Data Model: DTO Validation Architecture
 
-**Date**: 2025-12-12  
+**Date**: 2025-12-12 | **Updated**: 2025-12-16  
 **Feature**: 007-config-fixes
 
 ## Overview
 
-This feature primarily deals with code generation templates and configuration flags rather than domain entities. However, there are key data structures in the generator and generated code.
+This feature implements true CQRS with separate DTOs for API contracts and comprehensive FluentValidation. The data model includes DTOs (API contract layer), DTO Validators (validation layer), Commands/Queries referencing DTOs, Handlers mapping DTOs to Models, and unchanged Models (domain layer).
 
 ---
 
@@ -13,23 +13,23 @@ This feature primarily deals with code generation templates and configuration fl
 
 ### Entity: MinimalApiServerCodegen Configuration
 
-**Purpose**: Generator configuration options that control template processing
+**Purpose**: Generator configuration options that control template processing and DTO generation
 
 ```java
 public class MinimalApiServerCodegen extends AbstractCSharpCodegen {
-    // Existing flags (no changes)
-    private boolean useMediatr = false;
+    // Existing flags (from 006)
+    private boolean useMediatr = false;           // REQUIRED for DTOs
     private boolean useProblemDetails = false;
     private boolean useRecords = false;
     private boolean useAuthentication = false;
     private boolean useResponseCaching = false;
     private boolean useApiVersioning = false;
     
-    // Modified behavior
-    private boolean useValidators = false;        // NOW FUNCTIONAL: controls validator generation
+    // Modified behavior (007)
+    private boolean useValidators = false;        // NOW FUNCTIONAL: controls DTO validator generation
     private boolean useGlobalExceptionHandler = true;  // NOW FUNCTIONAL: controls middleware
     
-    // REMOVED (dead code)
+    // REMOVED (007)
     // private boolean useRouteGroups = true;     // DELETED: unused flag
 }
 ```
@@ -37,100 +37,252 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen {
 **Relationships**:
 - Inherits from AbstractCSharpCodegen (OpenAPI Generator framework)
 - Populates additionalProperties map for template access
-- Triggers validator file generation when useValidators=true
+- Triggers DTO and validator file generation when useMediatr=true and useValidators=true
 
 **Validation Rules**:
 - All flags are boolean
 - useGlobalExceptionHandler defaults to true (opt-out pattern)
 - useValidators defaults to false (opt-in pattern)
+- useMediatr must be true for DTOs to be generated
 
 **State Transitions**:
-- Configuration → Template Processing → File Generation
-- useValidators=true → validator.mustache invoked per operation
+- Configuration → Template Processing → DTO/Validator File Generation
+- useMediatr=true → dto.mustache invoked per requestBody schema
+- useValidators=true → dtoValidator.mustache invoked per DTO
 - useGlobalExceptionHandler=true → exception handler middleware added to program.mustache
 
 ---
 
-## Generated Code Data Model (C#)
+## Template Data Model (Mustache Context)
 
-### Entity: Validator Class
+---
 
-**Purpose**: FluentValidation validator for request validation
+## Entity Catalog
 
+### 1. DTO (Data Transfer Object)
+
+**Purpose**: API contract representation for request bodies, separate from domain Models
+
+**Properties**:
+- C# record type (immutable by default)
+- Properties match OpenAPI requestBody schema exactly
+- Located in `DTOs/` directory
+- One DTO per unique requestBody schema
+
+**Example Classes**:
+- `AddPetDto` - for POST /pet requestBody
+- `UpdatePetDto` - for PUT /pet requestBody
+- `CategoryDto` - nested object in AddPetDto
+- `TagDto` - nested object in AddPetDto
+- `PlaceOrderDto` - for POST /store/order requestBody
+
+**Relationships**:
+- Referenced by Command/Query classes (composition)
+- Validated by corresponding DTO Validator
+- Mapped to Model by Handler
+
+**Lifecycle**: Created from JSON deserialization → Validated by FluentValidation → Passed to Handler → Mapped to Model
+
+**File Location**: `{outputFolder}/DTOs/{DtoClassName}.cs`
+
+---
+
+### 2. DTO Validator
+
+**Purpose**: FluentValidation validator for DTO classes, enforces OpenAPI constraints at API boundary
+
+**Properties**:
+- Inherits from `AbstractValidator<TDto>`
+- Contains RuleFor() expressions for each property constraint
+- Located in `Validators/` directory
+- Registered in DI container via AddValidatorsFromAssemblyContaining
+
+**Example Classes**:
+- `AddPetDtoValidator` - validates AddPetDto
+- `CategoryDtoValidator` - validates CategoryDto (chained via SetValidator)
+- `PlaceOrderDtoValidator` - validates PlaceOrderDto
+
+**Validation Rules** (mapped from OpenAPI):
+- required → `RuleFor(x => x.Name).NotEmpty()`
+- minLength/maxLength → `RuleFor(x => x.Name).Length(1, 100)`
+- pattern → `RuleFor(x => x.Email).Matches("^[a-zA-Z0-9._%+-]+@...")`
+- minimum/maximum → `RuleFor(x => x.Quantity).GreaterThanOrEqualTo(1).LessThanOrEqualTo(1000)`
+- minItems/maxItems → `RuleFor(x => x.PhotoUrls).Must(x => x.Count >= 1 && x.Count <= 10)`
+- nested object → `RuleFor(x => x.Category).SetValidator(new CategoryDtoValidator())`
+
+**Relationships**:
+- Validates corresponding DTO
+- Chained via SetValidator for nested DTOs
+- Triggered before MediatR handler execution
+
+**Lifecycle**: Registered at startup → Invoked on request → Returns ValidationResult → Converted to 400 response if failed
+
+**File Location**: `{outputFolder}/Validators/{DtoClassName}Validator.cs`
+
+---
+
+### 3. Command (Modified)
+
+**Purpose**: MediatR request carrying validated DTO to Handler
+
+**Properties**:
+- References DTO type (NOT Model type) for body parameters
+- Immutable record type
+- Implements IRequest<TResponse>
+
+**Example**: AddPetCommand
 ```csharp
-public class {{operationId}}RequestValidator : AbstractValidator<{{operationId}}Request>
+public record AddPetCommand : IRequest<Pet>
 {
-    public {{operationId}}RequestValidator()
+    public AddPetDto pet { get; init; }  // Changed from Pet to AddPetDto
+}
+```
+
+**Key Change from 006**: Body parameter type changed from Model to DTO
+
+**Relationships**:
+- Contains DTO (composition)
+- Handled by corresponding Handler
+- Sent via MediatR pipeline
+
+**File Location**: `{outputFolder}/Commands/{OperationId}Command.cs`
+
+---
+
+### 4. Query (Modified)
+
+**Purpose**: MediatR request for read operations (may include DTO for filtering)
+
+**Properties**:
+- References DTO type for body parameters (if applicable)
+- Immutable record type
+- Implements IRequest<TResponse>
+
+**Example**: FindPetsByStatusQuery (no DTO, query params only)
+```csharp
+public record FindPetsByStatusQuery : IRequest<List<Pet>>
+{
+    public List<string>? status { get; init; }
+}
+```
+
+**Note**: Most queries won't have DTOs (only GET operations with request bodies, which are rare)
+
+**File Location**: `{outputFolder}/Queries/{OperationId}Query.cs`
+
+---
+
+### 5. Handler (Modified)
+
+**Purpose**: MediatR handler that maps DTO to Model and executes business logic
+
+**Properties**:
+- Receives Command/Query with DTO
+- Responsible for DTO→Model mapping
+- Contains business logic operating on Models
+
+**Example**: AddPetHandler
+```csharp
+public class AddPetHandler : IRequestHandler<AddPetCommand, Pet>
+{
+    public async Task<Pet> Handle(AddPetCommand request, CancellationToken cancellationToken)
     {
-        // Rules added per required parameter
-        RuleFor(x => x.ParameterName).NotEmpty();
+        // Map DTO to Model
+        var pet = new Pet
+        {
+            Id = request.pet.Id,
+            Name = request.pet.Name,
+            PhotoUrls = request.pet.PhotoUrls,
+            Category = request.pet.Category != null ? new Category
+            {
+                Id = request.pet.Category.Id,
+                Name = request.pet.Category.Name
+            } : null,
+            // ... map all properties
+        };
+        
+        // TODO: Implement business logic with Model
+        return pet;
     }
 }
 ```
 
-**Properties**:
-- Inherits from `AbstractValidator<TRequest>`
-- One class per operation with parameters
-- Rules based on OpenAPI schema constraints
+**Key Change from 006**: Added DTO→Model mapping responsibility
 
 **Relationships**:
-- References request DTO class (e.g., `AddPetRequest`)
-- Registered in DI container via `AddValidatorsFromAssemblyContaining<Program>()`
-- Invoked by ASP.NET Core validation pipeline
+- Handles Command/Query
+- Maps DTO to Model
+- Returns Model (not DTO)
 
-**Validation Rules** (FluentValidation DSL):
-- `.NotEmpty()` for required parameters
-- `.Matches(pattern)` for regex patterns (future enhancement)
-- `.Length(min, max)` for string length constraints (future enhancement)
-- `.GreaterThanOrEqualTo(min)` for numeric minimums (future enhancement)
-
-**File Location**: `{outputFolder}/Validators/{OperationId}RequestValidator.cs`
+**File Location**: `{outputFolder}/Handlers/{OperationId}Handler.cs`
 
 ---
 
-### Entity: Exception Handler Configuration
+### 6. Model (Unchanged)
 
-**Purpose**: ASP.NET Core middleware configuration for unhandled exceptions
+**Purpose**: Domain entity representing business concepts from OpenAPI components/schemas
 
+**Properties**:
+- Plain C# class
+- Located in `Models/` directory
+- May differ from DTOs (independent evolution)
+
+**Example**: Pet
 ```csharp
-// In Program.cs
-app.UseExceptionHandler(exceptionHandlerApp =>
+public class Pet
 {
-    exceptionHandlerApp.Run(async context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/problem+json";
-        
-        var problemDetails = new ProblemDetails
-        {
-            Status = 500,
-            Title = "An error occurred",
-            Detail = exception?.Message
-        };
-        
-        await context.Response.WriteAsJsonAsync(problemDetails);
-    });
-});
+    public long Id { get; set; }
+    public string Name { get; set; }
+    public Category? Category { get; set; }
+    public List<string> PhotoUrls { get; set; }
+    public List<Tag>? Tags { get; set; }
+    public string? Status { get; set; }
+}
 ```
 
-**Properties**:
-- Middleware lambda configuration
-- Produces ProblemDetails response
-- Sets HTTP 500 status code
+**Note**: No [Required] attributes, no validation logic - this is domain model only
 
 **Relationships**:
-- Integrates with useProblemDetails flag
-- Catches unhandled exceptions from all endpoints
-- Transforms to RFC 7807 format
+- Created by Handler from DTO
+- Used in business logic
+- Returned as response
 
-**Validation Rules**:
-- Always returns HTTP 500 for unhandled exceptions
-- ContentType must be "application/problem+json" when useProblemDetails=true
-- Detail field contains exception message (production may want to sanitize)
+**File Location**: `{outputFolder}/Models/{ModelName}.cs`
 
 ---
 
-## Template Data Model (Mustache Context)
+## Entity Relationships Diagram
+
+```
+[JSON Request Body]
+       ↓
+   [DTO Class] ← validated by → [DTO Validator]
+       ↓
+ [Command/Query] ← referenced by
+       ↓
+    [Handler] ← maps DTO to → [Model]
+       ↓
+ [Business Logic]
+       ↓
+  [Model Response]
+```
+
+---
+
+## DTO vs Model Comparison
+
+| Aspect | DTO | Model |
+|--------|-----|-------|
+| **Purpose** | API contract | Domain entity |
+| **Location** | DTOs/ directory | Models/ directory |
+| **Validation** | FluentValidation rules | None (domain invariants in logic) |
+| **Immutability** | record type (init-only) | class (mutable setters) |
+| **Schema Source** | OpenAPI requestBody | OpenAPI components/schemas |
+| **Referenced By** | Command/Query | Handler business logic |
+| **Lifetime** | Request scope | Business logic scope |
+| **Can Differ?** | Yes - API and domain may evolve independently | Yes |
+
+---
 
 ### Entity: Operation Context
 

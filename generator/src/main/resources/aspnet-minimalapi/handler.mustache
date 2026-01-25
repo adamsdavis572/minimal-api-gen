@@ -11,6 +11,7 @@ using MediatR;
 using {{packageName}}.Commands;
 using {{packageName}}.Queries;
 using {{packageName}}.Models;
+using {{packageName}}.DTOs;
 
 namespace {{packageName}}.Handlers;
 
@@ -37,6 +38,15 @@ public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{med
     /// </summary>
     public async Task<{{{mediatrResponseType}}}> Handle({{requestClassName}} request, CancellationToken cancellationToken)
     {
+{{#hasBodyParam}}
+        // TODO: Map DTO to Model
+        // Example mapping (customize based on your domain model):
+        // var model = new {{bodyParam.dataType}}
+        // {
+        //     // Map properties from request.{{bodyParam.paramName}} to model
+        // };
+        
+{{/hasBodyParam}}
         // TODO: Implement {{operationId}} logic
         {{#isUnit}}
         // For void operations, return Unit.Value

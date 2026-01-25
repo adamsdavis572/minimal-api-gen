@@ -3,6 +3,8 @@
 
 using PetstoreApi.Models;
 using System.Collections.Concurrent;
+using System.Reflection;
+using System.Text.Json.Serialization;
 
 namespace PetstoreApi.Services;
 
@@ -13,6 +15,7 @@ public interface IPetStore
     Pet? Update(Pet pet);
     bool Delete(long id);
     IEnumerable<Pet> FindByStatus(IEnumerable<string> statuses);
+    IEnumerable<Pet> FindByTags(IEnumerable<string> tags);
 }
 
 public class InMemoryPetStore : IPetStore
@@ -22,8 +25,11 @@ public class InMemoryPetStore : IPetStore
 
     public Pet Add(Pet pet)
     {
-        // Assign new ID
-        pet.Id = Interlocked.Increment(ref _nextId);
+        // Only assign new ID if not provided (ID is 0 or negative)
+        if (pet.Id <= 0)
+        {
+            pet.Id = Interlocked.Increment(ref _nextId);
+        }
         
         _pets[pet.Id] = pet;
         return pet;
@@ -56,7 +62,26 @@ public class InMemoryPetStore : IPetStore
         var statusSet = new HashSet<string>(statuses, StringComparer.OrdinalIgnoreCase);
         
         return _pets.Values
-            .Where(p => p.Status != null && statusSet.Contains(p.Status.ToString()))
+            .Where(p => p.Status != null && statusSet.Contains(GetEnumJsonValue(p.Status)))
             .ToList();
+    }
+
+    public IEnumerable<Pet> FindByTags(IEnumerable<string> tags)
+    {
+        var tagSet = new HashSet<string>(tags, StringComparer.OrdinalIgnoreCase);
+        
+        return _pets.Values
+            .Where(p => p.Tags != null && p.Tags.Any(t => tagSet.Contains(t.Name)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Gets the JSON serialization value for an enum by reading the JsonPropertyName attribute.
+    /// </summary>
+    private static string GetEnumJsonValue(Enum enumValue)
+    {
+        var memberInfo = enumValue.GetType().GetField(enumValue.ToString());
+        var attribute = memberInfo?.GetCustomAttribute<JsonPropertyNameAttribute>();
+        return attribute?.Name ?? enumValue.ToString();
     }
 }

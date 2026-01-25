@@ -1,0 +1,57 @@
+meta {
+  name: Deletes a pet
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/pet/:petId
+  body: none
+  auth: none
+}
+
+params:path {
+  petId: {{petId}}
+}
+
+assert {
+  res.status: eq 204
+}
+
+tests {
+  test("should return 204 No Content", function() {
+    expect(res.status).to.equal(204);
+  });
+}
+
+example {
+  name: 400 Response
+  description: Invalid pet value
+  
+  request: {
+    url: {{baseUrl}}/pet/:petId
+    method: DELETE
+    mode: none
+    params:path: {
+      petId: 
+    }
+  
+    headers: {
+      ~api_key: 
+    }
+  }
+  
+  response: {
+    status: {
+      code: 400
+      text: Bad Request
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

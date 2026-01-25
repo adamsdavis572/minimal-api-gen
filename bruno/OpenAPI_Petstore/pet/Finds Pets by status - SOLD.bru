@@ -1,0 +1,165 @@
+meta {
+  name: Finds Pets by status - SOLD
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/pet/findByStatus?status=sold
+  body: none
+  auth: none
+}
+
+params:query {
+  status: sold
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("should return array of pets", function() {
+    expect(res.body).to.be.an('array');
+  });
+  
+  test("should include our pet with available status", function() {
+    console.log("Response body:", JSON.stringify(res.body, null, 2));
+    console.log("Pet IDs in response:", res.body.map(p => ({id: p.id, type: typeof p.id})));
+    const pet = res.body.find(p => p.id === 12345);
+    expect(pet).to.exist;
+    expect(pet.name).to.equal('Bruno Updated');
+    expect(pet.status).to.equal('sold');
+  });
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/pet/findByStatus
+    method: GET
+    mode: none
+    params:query: {
+      status: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/xml
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: xml
+      content: '''
+        [
+          {
+            "id": 0,
+            "category": {
+              "id": 0,
+              "name": ""
+            },
+            "name": "",
+            "photoUrls": [],
+            "tags": [
+              {
+                "id": 0,
+                "name": ""
+              }
+            ],
+            "status": ""
+          }
+        ]
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: successful operation
+  
+  request: {
+    url: {{baseUrl}}/pet/findByStatus
+    method: GET
+    mode: none
+    params:query: {
+      status: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        [
+          {
+            "id": 0,
+            "category": {
+              "id": 0,
+              "name": ""
+            },
+            "name": "",
+            "photoUrls": [],
+            "tags": [
+              {
+                "id": 0,
+                "name": ""
+              }
+            ],
+            "status": ""
+          }
+        ]
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Invalid status value
+  
+  request: {
+    url: {{baseUrl}}/pet/findByStatus
+    method: GET
+    mode: none
+    params:query: {
+      status: 
+    }
+  }
+  
+  response: {
+    status: {
+      code: 400
+      text: Bad Request
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

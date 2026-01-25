@@ -1,0 +1,45 @@
+using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Reflection;
+
+namespace {{packageName}}.Converters;
+
+/// <summary>
+/// Custom JSON converter that supports JsonPropertyName attributes on enum members
+/// </summary>
+public class EnumMemberJsonConverter<T> : JsonConverter<T> where T : struct, Enum
+{
+    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var stringValue = reader.GetString();
+        if (string.IsNullOrEmpty(stringValue))
+            return default;
+
+        // Try to find enum value by JsonPropertyName attribute
+        foreach (var field in typeToConvert.GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            var attribute = field.GetCustomAttribute<JsonPropertyNameAttribute>();
+            if (attribute?.Name == stringValue)
+            {
+                return (T)field.GetValue(null)!;
+            }
+        }
+
+        // Fallback to standard enum parsing
+        if (Enum.TryParse<T>(stringValue, ignoreCase: true, out var result))
+        {
+            return result;
+        }
+
+        throw new JsonException($"Unable to convert \"{stringValue}\" to enum \"{typeToConvert}\".");
+    }
+
+    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+    {
+        var field = value.GetType().GetField(value.ToString()!);
+        var attribute = field?.GetCustomAttribute<JsonPropertyNameAttribute>();
+        
+        writer.WriteStringValue(attribute?.Name ?? value.ToString());
+    }
+}

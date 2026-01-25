@@ -5,6 +5,7 @@
 
 using MediatR;
 using {{packageName}}.Models;
+using {{packageName}}.DTOs;
 
 namespace {{packageName}}.Commands;
 
@@ -20,7 +21,12 @@ public record {{commandClassName}} : IRequest<{{{mediatrResponseType}}}>
     /// <summary>
     /// {{description}}
     /// </summary>
+{{#vendorExtensions.isDtoParam}}
+    public {{vendorExtensions.dtoType}} {{paramName}} { get; init; }
+{{/vendorExtensions.isDtoParam}}
+{{^vendorExtensions.isDtoParam}}
     public {{{dataType}}}{{^required}}?{{/required}} {{paramName}} { get; init; }{{^required}} = default!;{{/required}}
+{{/vendorExtensions.isDtoParam}}
 
 {{/allParams}}
 }

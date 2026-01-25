@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.DTOs;
 using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
@@ -29,7 +30,30 @@ public class UpdatePetCommandHandler : IRequestHandler<UpdatePetCommand, Pet>
     /// </summary>
     public async Task<Pet> Handle(UpdatePetCommand request, CancellationToken cancellationToken)
     {
-        var pet = _petStore.Update(request.pet);
-        return await Task.FromResult(pet);
+        // Map DTO to Model
+        var pet = new Pet
+        {
+            Id = request.pet.Id.GetValueOrDefault(),
+            Category = request.pet.Category != null ? new Category { Id = request.pet.Category.Id.GetValueOrDefault(), Name = request.pet.Category.Name } : null,
+            Name = request.pet.Name,
+            PhotoUrls = request.pet.PhotoUrls,
+            Tags = request.pet.Tags?.Select(t => new Tag { Id = t.Id.GetValueOrDefault(), Name = t.Name }).ToList(),
+            Status = MapStatus(request.pet.Status)
+        };
+        var result = _petStore.Update(pet);
+        return await Task.FromResult(result);
+    }
+
+    private static Pet.StatusEnum MapStatus(string? status)
+    {
+        if (string.IsNullOrEmpty(status)) return Pet.StatusEnum.AvailableEnum;
+        
+        return status.ToLower() switch
+        {
+            "available" => Pet.StatusEnum.AvailableEnum,
+            "pending" => Pet.StatusEnum.PendingEnum,
+            "sold" => Pet.StatusEnum.SoldEnum,
+            _ => Pet.StatusEnum.AvailableEnum
+        };
     }
 }

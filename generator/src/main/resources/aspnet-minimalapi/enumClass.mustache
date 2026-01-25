@@ -5,12 +5,14 @@
     {{#description}}
     /// <value>{{{.}}}</value>
     {{/description}}
+    [System.Text.Json.Serialization.JsonConverter(typeof({{packageName}}.Converters.EnumMemberJsonConverter<{{datatypeWithEnum}}{{^datatypeWithEnum}}{{classname}}{{/datatypeWithEnum}}>))]
     public enum {{datatypeWithEnum}}{{^datatypeWithEnum}}{{classname}}{{/datatypeWithEnum}}
     {
         {{#allowableValues}}{{#enumVars}}
         /// <summary>
         /// Enum {{name}} for {{{value}}}
         /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("{{{value}}}")]
         {{name}}{{^isString}} = {{{value}}}{{/isString}}{{#isString}}{{^vendorExtensions.x-zero-based-enum}} = {{-index}}{{/vendorExtensions.x-zero-based-enum}}{{/isString}}{{^-last}},
         {{/-last}}{{/enumVars}}{{/allowableValues}}
     }
