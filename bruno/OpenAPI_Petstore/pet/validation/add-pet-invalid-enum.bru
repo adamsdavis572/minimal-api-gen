@@ -1,0 +1,37 @@
+meta {
+  name: Add Pet - Invalid Enum Value
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "name": "Fluffy",
+    "photoUrls": ["https://example.com/photo.jpg"],
+    "status": "invalid_status_value"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+}
+
+tests {
+  test("should return 400 when status enum value is invalid", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.type).to.be.a('string');
+    expect(data.title).to.be.a('string');
+    expect(data.status).to.equal(400);
+  });
+}

@@ -1,0 +1,42 @@
+meta {
+  name: Create User - Username Too Short
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/user
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "username": "ab",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "phone": "1234567890",
+    "userStatus": 1
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors.Username: isDefined
+}
+
+tests {
+  test("should return validation error when username is too short", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    expect(data.errors.Username).to.be.an('array');
+    expect(data.errors.Username[0]).to.include('between');
+  });
+}

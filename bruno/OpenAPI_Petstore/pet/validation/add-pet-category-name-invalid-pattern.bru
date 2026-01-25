@@ -1,0 +1,42 @@
+meta {
+  name: Add Pet - Category Name Invalid Pattern
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "name": "Fluffy",
+    "photoUrls": ["https://example.com/photo.jpg"],
+    "status": "available",
+    "category": {
+      "id": 1,
+      "name": "_InvalidCategory"
+    }
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors['Category.Name']: isDefined
+}
+
+tests {
+  test("should return validation error when category name has invalid pattern", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    expect(data.errors['Category.Name']).to.be.an('array');
+    expect(data.errors['Category.Name'][0]).to.include('match');
+  });
+}

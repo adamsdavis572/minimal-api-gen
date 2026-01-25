@@ -1,0 +1,42 @@
+meta {
+  name: Create User - Invalid Email Pattern
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/user
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "not-a-valid-email",
+    "password": "password123",
+    "phone": "1234567890",
+    "userStatus": 1
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors.Email: isDefined
+}
+
+tests {
+  test("should return validation error when email format is invalid", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    expect(data.errors.Email).to.be.an('array');
+    expect(data.errors.Email[0]).to.include('pattern');
+  });
+}

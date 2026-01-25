@@ -7,6 +7,20 @@ using Xunit;
 
 namespace PetstoreApi.Tests;
 
+/// <summary>
+/// NOTE: FluentValidation errors always return HttpValidationProblemDetails format (RFC 7807).
+/// This format includes an "errors" dictionary with field names as keys and validation messages as values.
+/// Example response:
+/// {
+///   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+///   "title": "One or more validation errors occurred.",
+///   "status": 400,
+///   "errors": {
+///     "Name": ["'Name' must not be empty."],
+///     "PhotoUrls": ["'Photo Urls' must not be empty."]
+///   }
+/// }
+/// </summary>
 public class HttpValidationProblemDetails
 {
     public string? Type { get; set; }

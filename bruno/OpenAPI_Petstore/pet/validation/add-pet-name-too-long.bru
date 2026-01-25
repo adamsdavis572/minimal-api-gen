@@ -1,0 +1,38 @@
+meta {
+  name: Add Pet - Name Too Long (maxLength)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "name": "ThisNameIsWayTooLongForAPetNameAndExceedsTheMaximumLengthConstraintThatWeHaveSetInTheValidationRuless",
+    "photoUrls": ["https://example.com/photo.jpg"],
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors.Name: isDefined
+}
+
+tests {
+  test("should return validation error when name is too long", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    expect(data.errors.Name).to.be.an('array');
+    expect(data.errors.Name[0]).to.include('between');
+  });
+}

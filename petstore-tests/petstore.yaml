@@ -761,7 +761,7 @@ components:
         name:
           type: string
           example: doggie
-          minLength: 1
+          minLength: 2
           maxLength: 100
         photoUrls:
           type: array

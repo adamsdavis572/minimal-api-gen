@@ -1,0 +1,36 @@
+meta {
+  name: Update Pet - Missing Required Fields
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors: isDefined
+}
+
+tests {
+  test("should return validation error when required fields are missing", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    // Should have errors for missing required fields like name and photoUrls
+    expect(data.errors.Name || data.errors.PhotoUrls).to.exist;
+  });
+}

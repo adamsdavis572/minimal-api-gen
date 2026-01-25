@@ -1,0 +1,37 @@
+meta {
+  name: Add Pet - Invalid ID Type (String)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": "not-a-number",
+    "name": "Fluffy",
+    "photoUrls": ["https://example.com/photo.jpg"],
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+}
+
+tests {
+  test("should return 400 when id is a string instead of number", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.type).to.be.a('string');
+    expect(data.title).to.be.a('string');
+    expect(data.status).to.equal(400);
+  });
+}

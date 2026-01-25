@@ -54,6 +54,16 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
             .Matches(@"{{pattern}}")
             .WithMessage("{{name}} must match the specified pattern");
 {{/pattern}}
+{{#isEnum}}
+        // Enum validation (string-based enum from OpenAPI spec)
+        RuleFor(x => x.{{name}})
+{{#required}}
+            .NotNull()
+            .WithMessage("{{name}} is required")
+{{/required}}
+            .Must(value => {{^required}}value == null || {{/required}}new[] { {{#allowableValues}}{{#enumVars}}"{{value}}"{{^-last}}, {{/-last}}{{/enumVars}}{{/allowableValues}} }.Contains(value))
+            .WithMessage("{{name}} must be one of: {{#allowableValues}}{{#enumVars}}{{value}}{{^-last}}, {{/-last}}{{/enumVars}}{{/allowableValues}}");
+{{/isEnum}}
 {{/isString}}
 {{#isNumeric}}
 {{#minimum}}

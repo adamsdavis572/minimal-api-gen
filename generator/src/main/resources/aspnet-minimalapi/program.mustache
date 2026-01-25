@@ -39,8 +39,8 @@ builder.Services.AddResponseCaching();{{/useResponseCaching}}
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-{{#useValidators}}{{#useMediatr}}
-// Exception handler for validation and model binding errors
+{{#useGlobalExceptionHandler}}
+// Global exception handler for validation and model binding errors
 app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async context =>
@@ -48,9 +48,11 @@ app.UseExceptionHandler(exceptionHandlerApp =>
         var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
         var exception = exceptionHandlerPathFeature?.Error;
 
+{{#useValidators}}
         if (exception is FluentValidation.ValidationException validationException)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
+{{#useProblemDetails}}
             context.Response.ContentType = "application/problem+json";
             
             var problemDetails = new Microsoft.AspNetCore.Http.HttpValidationProblemDetails(
@@ -67,10 +69,29 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             };
 
             await context.Response.WriteAsJsonAsync(problemDetails);
+{{/useProblemDetails}}
+{{^useProblemDetails}}
+            context.Response.ContentType = "application/json";
+            
+            var errors = validationException.Errors
+                .GroupBy(x => x.PropertyName)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.ErrorMessage).ToArray()
+                );
+
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = "Validation failed",
+                message = "One or more validation errors occurred",
+                errors = errors
+            });
+{{/useProblemDetails}}
         }
-        else if (exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequestException)
+        else {{/useValidators}}if (exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequestException)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
+{{#useProblemDetails}}
             context.Response.ContentType = "application/problem+json";
             
             var problemDetails = new ProblemDetails
@@ -82,10 +103,21 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             };
 
             await context.Response.WriteAsJsonAsync(problemDetails);
+{{/useProblemDetails}}
+{{^useProblemDetails}}
+            context.Response.ContentType = "application/json";
+            
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = "Bad Request",
+                message = badRequestException.Message
+            });
+{{/useProblemDetails}}
         }
         else if (exception is System.Text.Json.JsonException jsonException)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
+{{#useProblemDetails}}
             context.Response.ContentType = "application/problem+json";
             
             var problemDetails = new ProblemDetails
@@ -97,10 +129,21 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             };
 
             await context.Response.WriteAsJsonAsync(problemDetails);
+{{/useProblemDetails}}
+{{^useProblemDetails}}
+            context.Response.ContentType = "application/json";
+            
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = "Invalid JSON",
+                message = "The request body contains invalid JSON"
+            });
+{{/useProblemDetails}}
         }
         else
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+{{#useProblemDetails}}
             context.Response.ContentType = "application/problem+json";
             
             var problemDetails = new ProblemDetails
@@ -112,10 +155,20 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             };
 
             await context.Response.WriteAsJsonAsync(problemDetails);
+{{/useProblemDetails}}
+{{^useProblemDetails}}
+            context.Response.ContentType = "application/json";
+            
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = "Internal Server Error",
+                message = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred"
+            });
+{{/useProblemDetails}}
         }
     });
 });
-{{/useMediatr}}{{/useValidators}}
+{{/useGlobalExceptionHandler}}
 
 if (app.Environment.IsDevelopment())
 {

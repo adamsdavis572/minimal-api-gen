@@ -1,0 +1,43 @@
+meta {
+  name: Add Pet - Multiple Validation Errors
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": 12345,
+    "name": "",
+    "photoUrls": [],
+    "status": "available",
+    "category": {
+      "id": 1,
+      "name": "123Invalid"
+    }
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.type: isDefined
+  res.body.title: isDefined
+  res.body.status: eq 400
+  res.body.errors: isDefined
+}
+
+tests {
+  test("should return multiple validation errors for different fields", function() {
+    const data = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(data.errors).to.be.an('object');
+    // Should have errors for name, photoUrls, and category.name
+    expect(Object.keys(data.errors).length).to.be.greaterThan(1);
+    expect(data.errors.Name || data.errors.PhotoUrls || data.errors['Category.Name']).to.exist;
+  });
+}
