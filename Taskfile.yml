@@ -282,7 +282,7 @@ tasks:
         if [ -f ../.server.pid ]; then
           PID=$(cat ../.server.pid)
           echo "Stopping API (PID $PID)..."
-          kill -9 $PID || true
+          bash -c "kill $PID" || true
           rm ../.server.pid
         else
           echo "No PID file found. Kill any process on port 5198 as fallback..."

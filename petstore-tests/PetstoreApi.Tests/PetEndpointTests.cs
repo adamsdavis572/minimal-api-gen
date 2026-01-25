@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using FluentAssertions;
 using PetstoreApi.Models;
 using PetstoreApi.DTOs;
+using PetstoreApi.Converters;
 using Xunit;
 
 namespace PetstoreApi.Tests;
@@ -14,7 +15,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     private readonly HttpClient _client;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new EnumMemberJsonConverterFactory() },
         PropertyNameCaseInsensitive = true
     };
 
