@@ -131,6 +131,13 @@ tasks:
       - echo "Running tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
 
+  test-generator-configs:
+    desc: Run xUnit integration tests for generator configuration matrix (T088)
+    cmds:
+      - echo "Running generator configuration tests..."
+      - dotnet test generator-tests/GeneratorTests.csproj --verbosity normal
+      - echo "✓ Configuration tests completed"
+
   clean-generated-api:
     desc: Clean only generated Minimal API code (keeps test files)
     cmds:

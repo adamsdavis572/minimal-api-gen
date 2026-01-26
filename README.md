@@ -5,13 +5,16 @@ A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs 
 ## Features
 
 - **ASP.NET Core Minimal APIs**: Generates lightweight, performant endpoint definitions
+- **True CQRS with DTOs**: Separate Data Transfer Objects from domain Models for clean API boundaries
 - **MediatR Integration**: Optional CQRS pattern with Commands, Queries, and Handlers
+- **Comprehensive Validation**: FluentValidation with full OpenAPI constraint support (7 constraint types)
+- **Production Error Handling**: Global exception handler with RFC 7807 ProblemDetails or simple JSON
 - **Proper HTTP Semantics**: 
   - POST returns 201 Created with Location header
   - DELETE returns 204 NoContent (success) or 404 NotFound
   - GET/PUT return 404 for missing resources
-- **Type-Safe Models**: Uses C# records for immutable DTOs
-- **FluentValidation**: Request validation infrastructure
+  - Validation errors return 400 BadRequest
+- **Type-Safe Models**: Uses C# records for immutable DTOs and Models
 - **Swagger/OpenAPI**: Automatic API documentation
 - **Test Infrastructure**: Complete test suite with WebApplicationFactory
 
@@ -110,11 +113,23 @@ devbox run task --list
 
 The generator supports various configuration options. See the [Configuration Reference](docs/CONFIGURATION.md) for complete details.
 
-Quick examples:
-- `useMediatr=true|false` - Enable MediatR/CQRS pattern (default: true)
+Key configuration options:
+- `useMediatr=true|false` - Enable MediatR/CQRS with separate DTOs (default: false)
+- `useValidators=true|false` - Enable FluentValidation on DTOs (default: false)
+- `useGlobalExceptionHandler=true|false` - Enable exception handling middleware (default: true)
+- `useProblemDetails=true|false` - Use RFC 7807 format for errors (default: false)
 - `packageName=YourApi` - Set the root namespace (default: PetstoreApi)
-- `useProblemDetails=true` - Enable RFC 7807 error responses
-- `useApiVersioning=true` - Enable API versioning
+- `useApiVersioning=true` - Enable API versioning (default: false)
+
+**Architecture Patterns:**
+
+When `useMediatr=true`, the generator creates a true CQRS architecture:
+- **DTOs** (`DTOs/`): API contracts matching OpenAPI requestBody schemas
+- **Commands/Queries** (`Commands/`, `Queries/`): Reference DTOs (not Models)
+- **Handlers** (`Handlers/`): Business logic that maps DTOs to domain Models
+- **Models** (`Models/`): Domain entities separate from API contracts
+
+When `useMediatr=false`, the generator uses traditional Minimal API patterns with Models directly in endpoints.
 
 ### Docker Usage (For CI/CD and Distribution)
 
