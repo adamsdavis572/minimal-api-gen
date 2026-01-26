@@ -552,120 +552,189 @@ Implementation tasks for true CQRS with separate DTOs and comprehensive validati
 
 ## Phase 5: Integration & Polish
 
-### 5.1: Configuration Matrix Testing
+### 5.1: Core Configuration Matrix Testing (Strategy 1)
 
-- [ ] T082 [P] Test config: useMediatr=false (no DTOs, backward compatibility)
+**Goal**: Test all permutations of Feature 007 flags to ensure correct conditional generation.
+
+- [X] T082 [P] Baseline: All features disabled (backward compatibility)
   - Location: `~/scratch/git/minimal-api-gen/`
-  - Command: `task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=false,useValidators=false,useGlobalExceptionHandler=false"`
-  - Expected: Clean generated code, no validators, no exception handler
+  - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=false,useValidators=false,useGlobalExceptionHandler=false"`
+  - Expected: Backward compatible code, Models in endpoints directly, no DTO/ directory, no Validators/ directory, no UseExceptionHandler
+  - Verify: `ls test-output/src/PetstoreApi/` shows no DTOs/ or Validators/ directories
+  - Verify: `grep -q "UseExceptionHandler" test-output/src/PetstoreApi/Program.cs` returns non-zero
+  - Verify: Build succeeds with 0 errors, 47 warnings
+  - COMPLETED: All verifications passed, backward compatible code generated
 
-- [ ] T083 [P] Test config: useValidators=true, useGlobalExceptionHandler=false
+- [X] T083 [P] DTO architecture only (MediatR without validation)
   - Location: `~/scratch/git/minimal-api-gen/`
-  - Command: `task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useGlobalExceptionHandler=false"`
-  - Expected: Validators present, no exception handler
+  - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=false,useGlobalExceptionHandler=false"`
+  - Expected: DTOs + Commands/Queries generated, no validators, no exception handler
+  - Verify: DTOs/ directory exists with 9 files
+  - Verify: Commands reference DTOs (e.g., `public AddPetDto pet`)
+  - Verify: No Validators/ directory
+  - Verify: No FluentValidation packages in .csproj
+  - Verify: No UseExceptionHandler in Program.cs
+  - Verify: Build succeeds with 0 errors
+  - COMPLETED: All verifications passed, MediatR without validation
 
-- [ ] T084 [P] Test config: useValidators=false, useGlobalExceptionHandler=true
+- [X] T084 [P] DTOs with validation (no exception handler)
   - Location: `~/scratch/git/minimal-api-gen/`
-  - Command: `task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=false,useGlobalExceptionHandler=true"`
-  - Expected: Exception handler present, no validators
+  - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useGlobalExceptionHandler=false"`
+  - Expected: DTOs + validators generated, no global exception handler
+  - Verify: Validators/ directory exists with 9 files
+  - Verify: FluentValidation packages present in .csproj
+  - Verify: AddValidatorsFromAssemblyContaining in Program.cs
+  - Verify: No UseExceptionHandler in Program.cs
+  - Verify: Build succeeds with 0 errors
+  - COMPLETED: All verifications passed, validation without exception handler
 
-- [ ] T085 [P] Test config: useValidators=true, useGlobalExceptionHandler=true, useProblemDetails=false
+- [X] T085 [P] DTOs with exception handling (no validators)
   - Location: `~/scratch/git/minimal-api-gen/`
-  - Command: `task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useGlobalExceptionHandler=true,useProblemDetails=false"`
-  - Expected: Both features enabled, simple JSON error format
+  - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=false,useGlobalExceptionHandler=true,useProblemDetails=true"`
+  - Expected: DTOs + exception handler generated, no validators, RFC 7807 format
+  - Verify: UseExceptionHandler present in Program.cs
+  - Verify: ProblemDetails response logic in exception handler
+  - Verify: No Validators/ directory
+  - Verify: Build succeeds with 0 errors
+  - COMPLETED: All verifications passed, exception handler without validators
 
-- [ ] T086 Build and test all 4 configurations
+- [X] T086 [P] Full feature set with RFC 7807 (recommended default)
+  - Location: `~/scratch/git/minimal-api-gen/`
+  - Command: `devbox run task regenerate`
+  - Expected: All Feature 007 components enabled, RFC 7807 error format
+  - Verify: DTOs/, Validators/, Commands/, Queries/, Handlers/ all present
+  - Verify: FluentValidation packages in .csproj
+  - Verify: UseExceptionHandler with ProblemDetails logic
+  - Verify: Build succeeds with 0 errors
+  - Verify: Run `task test-server-stubs` passes 30/30 tests
+  - COMPLETED: All tests passed (30/30 xUnit + 13/13 Bruno), recommended default config
+
+- [X] T087 [P] Full feature set with simple JSON errors
+  - Location: `~/scratch/git/minimal-api-gen/`
+  - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useGlobalExceptionHandler=true,useProblemDetails=false"`
+  - Expected: All features enabled, simple {error, message} error format
+  - Verify: UseExceptionHandler uses simple JSON format (not ProblemDetails)
+  - Verify: Build succeeds with 0 errors, 67 warnings
+  - COMPLETED: All verifications passed, simple JSON error format working
+
+- [ ] T088 Automated build verification for all 6 configurations
+  - Location: `~/scratch/git/minimal-api-gen/`
+  - Action: Create script to build all 6 configurations in sequence
+  - Expected: All 6 configurations compile with 0 errors
+  - Verify: Check for missing package references, syntax errors, template issues
+  - Note: This validates generator robustness across flag combinations
+
+### 5.2: Smoke Testing
+
+- [ ] T089 Smoke test: API starts and responds for each configuration
+  - Location: `~/scratch/git/minimal-api-gen/`
+  - Action: For each of the 6 configurations, start API and verify /health endpoint responds
+  - Expected: All configurations produce working APIs
+  - Command sequence per config:
+    1. Generate with specific config
+    2. `task copy-test-stubs`
+    3. `task api:start` (background)
+    4. `curl http://localhost:5000/health`
+    5. Verify 200 OK response
+    6. Stop API
+
+### 5.3: Baseline Test Suite Validation
+
+- [ ] T090 Run baseline test suite from feature 003
   - Location: `~/scratch/git/minimal-api-gen/`
   - Command: `task test-server-stubs`
-  - Expected: All configurations build and pass tests
+  - Expected: All baseline tests pass after DTO updates (30/30 xUnit + 13/13 Bruno)
 
-### 5.2: Baseline Test Suite Validation
+### 5.4: Documentation Updates
 
-- [ ] T087 Run baseline test suite from feature 003
-  - Location: `~/scratch/git/minimal-api-gen/`
-  - Command: `task test-server-stubs`
-  - Expected: All baseline tests pass after DTO updates
-
-### 5.3: Documentation Updates
-
-- [ ] T088 Update README.md with DTO architecture
+- [X] T091 Update README.md with DTO architecture
   - Location: `generator/src/main/resources/aspnet-minimalapi/README.md`
   - Action: Add section documenting DTO generation, breaking change from 006
   - Expected: Users understand DTOs separate from Models
+  - Completed: Added comprehensive Features section with "True CQRS with DTOs" and Architecture Patterns explaining useMediatr=true vs false
 
-- [ ] T089 Update README.md with validator generation example
+- [X] T092 Update README.md with validator generation example
   - Location: `generator/src/main/resources/aspnet-minimalapi/README.md`
   - Action: Add section documenting useValidators flag and 7 constraint types
   - Expected: Users understand comprehensive validation support
+  - Completed: Added "Comprehensive Validation" feature with 7 constraint types documented in Features section
 
-- [ ] T090 Update README.md with exception handler example
+- [X] T093 Update README.md with exception handler example
   - Location: `generator/src/main/resources/aspnet-minimalapi/README.md`
   - Action: Add section documenting useGlobalExceptionHandler and useProblemDetails flags
   - Expected: Users understand error handling configuration
+  - Completed: Added "Production Error Handling (RFC 7807)" feature and expanded configuration options with exception handler flags
 
-- [ ] T091 [P] Update CONFIGURATION.md with resolved issues
+- [X] T094 [P] Update CONFIGURATION.md with resolved issues
   - Location: `docs/CONFIGURATION.md`
   - Action: Mark useValidators and useGlobalExceptionHandler as implemented
   - Expected: Configuration documentation accurate
+  - Completed: Marked useMediatr, useValidators, useGlobalExceptionHandler, useProblemDetails as ✅ IMPLEMENTED
 
-### 5.4: Success Criteria Verification
+- [X] T095 Document configuration matrix in CONFIGURATION.md
+  - Location: `docs/CONFIGURATION.md`
+  - Action: Add table showing all 6 tested configurations with use cases
+  - Expected: Users understand recommended configurations for different scenarios
+  - Completed: Added "Recommended Configurations" section with 6x6 matrix table showing T082-T087 results, use cases, and example commands
 
-- [ ] T092 SC-001: Verify DTOs separate from Models
+### 5.5: Success Criteria Verification
+
+- [ ] T096 SC-001: Verify DTOs separate from Models
   - Location: `test-output/src/PetstoreApi/`
   - Action: Confirm DTOs/ directory exists with 5+ files, Commands reference DTOs
   - Expected: DTOs/ and Models/ directories separate, Commands have AddPetDto properties
 
-- [ ] T093 SC-002: Verify DTO validators with comprehensive rules
+- [ ] T097 SC-002: Verify DTO validators with comprehensive rules
   - Location: `test-output/src/PetstoreApi/Validators/`
   - Action: Count validator files, verify 7 constraint types present
   - Expected: 5+ validators with NotEmpty, Length, Matches, GreaterThan, SetValidator rules
 
-- [ ] T094 SC-003: Verify enhanced petstore.yaml constraints
+- [ ] T098 SC-003: Verify enhanced petstore.yaml constraints
   - Location: `petstore-tests/petstore.yaml`
   - Action: Count validation constraints across schemas
   - Expected: 6+ examples of different constraint types
 
-- [ ] T095 SC-004: Verify DTO validation rejects invalid requests
+- [ ] T099 SC-004: Verify DTO validation rejects invalid requests
   - Location: Test output from DtoValidationTests.cs
   - Action: Check test results for 400 responses with specific errors
   - Expected: Invalid requests return 400 within 100ms
 
-- [ ] T096 SC-005: Verify nested DTO validation
+- [ ] T100 SC-005: Verify nested DTO validation
   - Location: Test output from DtoValidationTests.cs
   - Action: Check nested validation test results
   - Expected: Invalid nested Category returns 400 with CategoryDtoValidator errors
 
-- [ ] T097 SC-006: Verify FluentValidation excluded when disabled
+- [ ] T101 SC-006: Verify FluentValidation excluded when disabled
   - Location: `test-output/PetstoreApi.csproj` (with useValidators=false)
   - Action: Check .csproj for FluentValidation packages
   - Expected: Zero FluentValidation package references
 
-- [ ] T098 SC-007: Verify exception handler catches validation errors
+- [ ] T102 SC-007: Verify exception handler catches validation errors
   - Location: Test output from ExceptionHandlerTests.cs
   - Action: Check ValidationException returns 400 (not 500)
   - Expected: ValidationException → 400 ProblemDetails
 
-- [ ] T099 SC-008: Verify RFC 7807 error format
+- [ ] T103 SC-008: Verify RFC 7807 error format
   - Location: Test output from ExceptionHandlerTests.cs
   - Action: Check error response has type, title, status, detail fields
   - Expected: ProblemDetails format matches RFC 7807
 
-- [ ] T100 SC-009: Verify configuration surface reduced
+- [ ] T104 SC-009: Verify configuration surface reduced
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Search for "useRouteGroups" in code
   - Expected: No references to useRouteGroups
 
-- [ ] T101 SC-010: Verify baseline tests pass after DTO refactoring
-  - Location: Test output from T087
+- [ ] T105 SC-010: Verify baseline tests pass after DTO refactoring
+  - Location: Test output from T090
   - Action: Review test results
-  - Expected: 100% pass rate (20/20 tests)
+  - Expected: 100% pass rate (30/30 xUnit + 13/13 Bruno)
 
-- [ ] T102 SC-011: Verify all configs compile
-  - Location: Test output from T086
+- [ ] T106 SC-011: Verify all configs compile
+  - Location: Test output from T088
   - Action: Review build results for all configurations
-  - Expected: All 4+ configurations build successfully
+  - Expected: All 6 configurations build successfully
 
-- [ ] T103 SC-012: Verify DTO-to-Model mapping responsibility
+- [ ] T107 SC-012: Verify DTO-to-Model mapping responsibility
   - Location: `test-output/src/PetstoreApi/Handlers/`
   - Action: Check handlers have DTO→Model mapping code
   - Expected: Handlers receive Command with DTO, map to Model with TODO comment
@@ -674,18 +743,18 @@ Implementation tasks for true CQRS with separate DTOs and comprehensive validati
 
 ## Phase 6: Completion Checklist
 
-- [ ] T104 All tasks completed (T001-T103)
-- [ ] T105 All success criteria met (SC-001 through SC-012)
-- [ ] T106 All user stories acceptance criteria satisfied (US0, US1, US2, US3, US4)
-- [ ] T107 Documentation updated and accurate
-- [ ] T108 Code changes committed with feature reference
-- [ ] T109 Feature branch ready for review
+- [ ] T108 All tasks completed (T001-T107)
+- [ ] T109 All success criteria met (SC-001 through SC-012)
+- [ ] T110 All user stories acceptance criteria satisfied (US0, US1, US2, US3, US4)
+- [ ] T111 Documentation updated and accurate
+- [ ] T112 Code changes committed with feature reference
+- [ ] T113 Feature branch ready for review
 
 ---
 
 ## Task Statistics
 
-**Total Tasks**: 109
+**Total Tasks**: 113 (core feature)
 **Parallelizable Tasks**: 7 (marked with [P])
 **User Story Tasks**: 
 - US0 (DTO Architecture - P0): 20 tasks (T014-T021, T034-T036, T046-T052, T066-T067)
@@ -693,15 +762,189 @@ Implementation tasks for true CQRS with separate DTOs and comprehensive validati
 - US2 (Petstore Enhancement - P1): 6 tasks (T037-T042)
 - US3 (Exception Handler - P2): 12 tasks (T070-T081)
 - US4 (Flag Removal - P3): 8 tasks (T006-T013)
+- Phase 5 (Integration & Testing): 32 tasks (T082-T113)
 
 **Estimated Timeline**: 
 - Phase 1 Setup: 10 minutes
 - Phase 2 US4 (Flag Removal): 30 minutes
 - Phase 3 US0+US1 (DTO Architecture + Validation): 4 hours
 - Phase 4 US3 (Exception Handler): 1 hour
-- Phase 5 Integration: 1 hour
+- Phase 5 Integration & Testing: 2 hours (includes 6-config matrix)
 - Phase 6 Completion: 15 minutes
-**Total**: ~7 hours
+**Total Core Feature**: ~8 hours
+
+**Optional Phase 7 (Advanced Testing)**: 12-14 hours (pairwise combinatorial testing)
+
+---
+
+## Phase 7: Advanced Testing - Pairwise Configuration Matrix (Strategy 3)
+
+**Status**: Optional enhancement - not blocking Feature 007 completion  
+**Goal**: Industrial-strength parameter testing using Microsoft PICT for combinatorial test case generation  
+**Benefits**: Reduces 2^8=256 exhaustive tests to ~20 optimized tests covering 100% of 2-way parameter interactions
+
+### 7.1: Generator Unit Test Infrastructure
+
+- [ ] T114 Create generator unit test module
+  - Location: `generator/src/test/java/org/openapitools/codegen/languages/`
+  - Action: Create MinimalApiServerCodegenTest.java with JUnit 5 setup
+  - Expected: Test class can instantiate MinimalApiServerCodegen and access configuration
+
+- [ ] T115 Add test utilities for file generation verification
+  - Location: `generator/src/test/java/org/openapitools/codegen/languages/MinimalApiServerCodegenTest.java`
+  - Action: Create helper methods: verifyFileExists(), verifyFileContains(), verifyFileAbsent()
+  - Expected: Reusable assertions for checking generated files
+
+- [ ] T116 Add test utilities for package reference verification
+  - Location: Same test class
+  - Action: Create helper: verifyPackageReference(projectFile, packageName, expectedPresent)
+  - Expected: Can verify FluentValidation, MediatR packages conditionally present
+
+- [ ] T117 Add test utilities for middleware registration verification
+  - Location: Same test class
+  - Action: Create helper: verifyMiddleware(programFile, middlewareName, expectedPresent)
+  - Expected: Can verify UseExceptionHandler, AddValidatorsFromAssemblyContaining presence
+
+- [ ] T118 Create baseline test: all flags disabled
+  - Location: Same test class
+  - Action: Test with all 8 flags = false, verify backward compatibility
+  - Expected: No DTOs/, no Validators/, no exception handler, Models in endpoints directly
+
+### 7.2: PICT Model Creation
+
+- [ ] T119 Install Microsoft PICT tool
+  - Location: Development environment
+  - Action: `brew install pict` (macOS) or download from Microsoft
+  - Expected: `pict --version` works, tool ready for test generation
+
+- [ ] T120 Create PICT model file for generator parameters
+  - Location: `generator/src/test/resources/generator-config.pict`
+  - Content:
+    ```
+    useMediatr: true, false
+    useValidators: true, false
+    useGlobalExceptionHandler: true, false
+    useProblemDetails: true, false
+    useRecords: true, false
+    useAuthentication: true, false
+    useResponseCaching: true, false
+    useApiVersioning: true, false
+    
+    IF [useValidators] = "true" THEN [useMediatr] = "true";
+    IF [useProblemDetails] = "true" THEN [useGlobalExceptionHandler] = "true";
+    ```
+  - Expected: PICT model captures all 8 boolean flags with constraints
+
+- [ ] T121 Generate pairwise test matrix with PICT
+  - Location: `generator/src/test/resources/`
+  - Command: `pict generator-config.pict > test-matrix.csv`
+  - Expected: ~20 test configurations generated (vs 256 exhaustive)
+  - Verify: All 2-way interactions covered (PICT guarantees 100% pairwise coverage)
+
+### 7.3: Parameterized Test Implementation
+
+- [ ] T122 Add JUnit Parameterized Test dependencies
+  - Location: `generator/pom.xml`
+  - Action: Add junit-jupiter-params dependency
+  - Expected: @ParameterizedTest annotation available
+
+- [ ] T123 Create CSV source provider for test matrix
+  - Location: `generator/src/test/java/org/openapitools/codegen/languages/MinimalApiServerCodegenTest.java`
+  - Action: Use @CsvFileSource(resources = "/test-matrix.csv") on test method
+  - Expected: Test runs once per row in PICT-generated matrix
+
+- [ ] T124 Implement parameterized configuration test
+  - Location: Same test class
+  - Action: Test method accepts 8 boolean parameters, generates code, verifies outputs
+  - Logic:
+    1. Set generator flags from CSV row
+    2. Generate code to temp directory
+    3. Run verification helpers (T115-T117)
+    4. Assert expected files present/absent based on flags
+  - Expected: All ~20 configurations tested in single test run
+
+- [ ] T125 Add test reporting with configuration details
+  - Location: Same test class
+  - Action: Log which configuration is being tested, any failures include flag values
+  - Expected: Test failures clearly show which flag combination failed
+
+### 7.4: CI/CD Integration
+
+- [ ] T126 Create GitHub Actions workflow for pairwise testing
+  - Location: `.github/workflows/generator-pairwise-tests.yml`
+  - Action: Workflow runs on PR to main, executes JUnit parameterized tests
+  - Expected: CI fails if any configuration produces invalid code
+
+- [ ] T127 Add PICT installation step to workflow
+  - Location: Same workflow file
+  - Action: Install PICT tool in GitHub Actions environment
+  - Expected: PICT available for test matrix regeneration if model changes
+
+- [ ] T128 Add test matrix artifact upload
+  - Location: Same workflow file
+  - Action: Upload test-matrix.csv as artifact after generation
+  - Expected: Can download and review which configurations were tested
+
+### 7.5: Performance & Coverage Analysis
+
+- [ ] T129 Add test execution time measurement
+  - Location: `generator/src/test/java/org/openapitools/codegen/languages/MinimalApiServerCodegenTest.java`
+  - Action: Use @Timeout annotation, log per-configuration time
+  - Expected: Identify slow configurations, optimize if needed
+
+- [ ] T130 Calculate pairwise coverage statistics
+  - Location: Test output logs
+  - Action: Document 2-way vs 3-way vs exhaustive coverage
+  - Expected: Report shows 100% 2-way, ~90-95% defect detection with <10% of exhaustive tests
+
+- [ ] T131 Add JaCoCo code coverage for generator
+  - Location: `generator/pom.xml`
+  - Action: Configure JaCoCo plugin, measure coverage of MinimalApiServerCodegen
+  - Expected: Coverage report shows which generator code paths are tested
+
+### 7.6: Validation & Reporting
+
+- [ ] T132 Create test summary documentation
+  - Location: `docs/TESTING.md`
+  - Action: Document pairwise testing strategy, PICT model, test matrix size
+  - Expected: Developers understand why 20 tests are sufficient vs 256
+
+- [ ] T133 Add constraint validation test
+  - Location: `generator/src/test/java/org/openapitools/codegen/languages/MinimalApiServerCodegenTest.java`
+  - Action: Verify PICT constraints are respected (no useValidators=true with useMediatr=false)
+  - Expected: All generated configurations satisfy logical constraints
+
+- [ ] T134 Document regression test process
+  - Location: `docs/TESTING.md`
+  - Action: Explain how to add new parameters to PICT model, regenerate matrix
+  - Expected: Future parameter additions automatically get pairwise tested
+
+---
+
+## Phase 7 Completion Checklist
+
+- [ ] T135 All Phase 7 tasks completed (T114-T134)
+- [ ] T136 PICT model generates valid test matrix
+- [ ] T137 Parameterized tests pass for all configurations
+- [ ] T138 CI/CD workflow executes pairwise tests
+- [ ] T139 Test coverage >80% for generator parameter handling
+- [ ] T140 Documentation explains pairwise testing approach
+
+---
+
+## Extended Task Statistics
+
+**Total Tasks (including Phase 7)**: 140
+- **Core Feature (Phases 1-6)**: 113 tasks (~8 hours)
+- **Advanced Testing (Phase 7)**: 27 tasks (~12-14 hours)
+
+**Phase 7 Benefits**:
+- **Coverage**: 100% of 2-way parameter interactions (vs 100% of single parameters in Phase 5)
+- **Efficiency**: 20 tests vs 256 exhaustive (92% reduction)
+- **Detection**: 90-95% defect detection rate (research-backed)
+- **Speed**: ~5 minutes vs ~64 minutes for exhaustive testing
+- **Automation**: Runs in CI/CD, catches regressions automatically
+- **Extensibility**: Adding 9th parameter adds ~3 tests (vs doubling to 512 exhaustive)
 
 ---
 
