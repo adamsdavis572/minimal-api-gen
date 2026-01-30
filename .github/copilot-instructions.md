@@ -80,7 +80,6 @@ Java (OpenAPI Generator codebase) - version detection needed from repository: Fo
 ## Recent Changes
 - 007-config-fixes: Added Java 11 (generator build), C# 11+ / .NET 8.0 (generated code)
 - 006-mediatr-decoupling: Added Java 11 (generator), C# 11+ / .NET 8.0 (generated code)
-- 004-minimal-api-refactoring: Added In-memory Dictionary for baseline tests (from Feature 003), N/A for generator itself
 
 
 <!-- MANUAL ADDITIONS START -->
