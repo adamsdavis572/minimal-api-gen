@@ -6,7 +6,7 @@ vars:
   GENERATOR_DIR: ./generator
   TEST_OUTPUT_DIR: ./test-output
   PETSTORE_SPEC: ./petstore-tests/petstore.yaml
-  TEST_PROJECT: "{{.TEST_OUTPUT_DIR}}/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj"
+  TEST_PROJECT: "./petstore-tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj"
 
 tasks:
   default:
@@ -15,7 +15,11 @@ tasks:
       - task --list
     silent: true
 
-  build-generator:
+  # ==============================================================================
+  # GENERATOR - Build Custom OpenAPI Generator
+  # ==============================================================================
+
+  generator:build:
     desc: Build the custom OpenAPI generator JAR
     sources:
       - generator/src/main/java/**/*.java
@@ -30,7 +34,7 @@ tasks:
         mvn clean package -q
       - echo "✓ Generator built successfully"
 
-  get-generator-cli:
+  generator:download-cli:
     desc: Downloads main generator CLI from Maven
     vars:
       CLI_URL: https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.17.0/openapi-generator-cli-7.17.0.jar
@@ -41,11 +45,15 @@ tasks:
     status:
       - test -f "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
 
-  generate-petstore-minimal-api:
+  # ==============================================================================
+  # CODEGEN - Generate API Code from OpenAPI Spec
+  # ==============================================================================
+
+  gen:petstore:
     desc: Generate server code from OpenAPI spec (with MediatR and optional properties)
     deps:
-      - build-generator
-      - get-generator-cli
+      - generator:build
+      - generator:download-cli
     vars:
       GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
       CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
@@ -63,7 +71,7 @@ tasks:
           --additional-properties {{.ADDITIONAL_PROPS}}
       - echo "✓ Server code generated"
 
-  copy-test-stubs:
+  gen:copy-test-stubs:
     desc: Copy test handlers and test project over generated stubs
     vars:
       TEST_HANDLERS_DIR: ./petstore-tests/TestHandlers
@@ -91,74 +99,172 @@ tasks:
       - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
       - echo "✓ ServiceCollectionExtensions copied successfully"
 
-  test-server-stubs:
-    desc: Run tests on generated server with test handlers
-    deps:
-      - copy-test-stubs
+  # ==============================================================================
+  # BUILD - Compile Generated Code
+  # ==============================================================================
+
+  build:all:
+    desc: Build entire solution (both projects when NuGet packaging enabled)
     cmds:
-      - echo "Running tests..."
+      - echo "Building entire solution..."
+      - dotnet build {{.TEST_OUTPUT_DIR}}/ --verbosity minimal
+      - echo "✓ Solution built successfully"
+    preconditions:
+      - test -f {{.TEST_OUTPUT_DIR}}/PetstoreApi.sln
+
+  build:contracts-nuget:
+    desc: Build the Contracts project only (for NuGet packaging workflow)
+    cmds:
+      - echo "Building Contracts project..."
+      - dotnet build {{.TEST_OUTPUT_DIR}}/src/PetstoreApi.Contracts/ --verbosity minimal
+      - echo "✓ Contracts built successfully"
+    preconditions:
+      - test -f {{.TEST_OUTPUT_DIR}}/src/PetstoreApi.Contracts/PetstoreApi.Contracts.csproj
+
+  build:impl-nuget:
+    desc: Build Implementation project that uses Contracts via NuGet package reference
+    deps:
+      - build:contracts-nuget
+    cmds:
+      - echo "Building Implementation project (using NuGet contracts)..."
+      - dotnet build {{.TEST_OUTPUT_DIR}}/src/PetstoreApi/ --verbosity minimal
+      - echo "✓ Implementation built successfully (with NuGet contracts)"
+    preconditions:
+      - test -f {{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj
+
+  # ==============================================================================
+  # TEST - Unit & Integration Testing
+  # ==============================================================================
+
+  test:unit:
+    desc: Run xUnit tests (assumes code already generated)
+    deps:
+      - gen:copy-test-stubs
+    cmds:
+      - echo "Running unit tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
 
-  run-petstore-api:
-    desc: Launch the generated Petstore API server
+  test:integration:
+    desc: Full API lifecycle test (start → wait → Bruno tests → stop)
+    vars:
+      SUITE: '{{.SUITE | default ""}}'
+    cmds:
+      - task: api:start
+      - defer: { task: api:stop }
+      - task: api:wait
+      - task: bruno:run{{if .SUITE}}-{{.SUITE}}{{end}}
+
+  test:integration-single:
+    desc: Run specific Bruno test(s) with full lifecycle (usage - task test:integration-single TEST='pet/add-pet.bru')
+    vars:
+      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+    cmds:
+      - task: api:start
+      - defer: { task: api:stop }
+      - task: api:wait
+      - task: bruno:run-single
+        vars: {TEST: '{{.TEST}}'}
+
+  # ==============================================================================
+  # API - Manage Test API Server
+  # ==============================================================================
+
+  api:run:
+    desc: Launch the generated Petstore API server (foreground)
     vars:
       API_PROJECT: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj"
     deps:
-      - copy-test-stubs
+      - gen:copy-test-stubs
     cmds:
       - echo "Starting Petstore API server..."
       - dotnet run --project {{.API_PROJECT}}
 
-
-  # Convenience tasks
-
-  regenerate:
-    desc: Complete regeneration workflow (force build + generate + copy stubs + test)
-    vars:
-      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true"}}'
+  api:start:
+    desc: Start the .NET API in background and save PID
+    deps:
+      - gen:copy-test-stubs
+    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
     cmds:
-      - rm -f generator/target/*.jar
-      - task: build-generator
-      - task: generate-petstore-minimal-api
-        vars:
-          ADDITIONAL_PROPS: "{{.ADDITIONAL_PROPS}}"
-      - task: test-server-stubs
+      - bash -c 'nohup dotnet run > /dev/null 2>&1 & echo $! > ../.server.pid'
+      - echo "API starting with PID $(cat ../.server.pid)..."
 
-  quick-test:
-    desc: Quick test run (assumes code already generated)
+  api:wait:
+    desc: Wait until the API is healthy
     cmds:
-      - task: copy-test-stubs
-      - echo "Running tests..."
-      - dotnet test {{.TEST_PROJECT}} --verbosity normal
-
-  clean-generated-api:
-    desc: Clean only generated Minimal API code (keeps test files)
-    cmds:
-      - echo "Cleaning generated Minimal API code..."
-      - rm -rf {{.TEST_OUTPUT_DIR}}
-      - echo "✓ Generated API code cleaned"
-
-  clean-all:
-    desc: Clean all generated code and build artifacts
-    cmds:
-      - echo "Cleaning all generated code..."
-      - rm -rf {{.TEST_OUTPUT_DIR}}
-      - echo "Cleaning generator build artifacts..."
+      - echo "Waiting for API to be healthy..."
       - |
-        cd generator
-        mvn clean
-      - echo "✓ Cleaned"
+        until curl --output /dev/null --silent --head --fail -X GET http://localhost:5198/health; do
+          printf '.'
+          sleep 1
+        done
+      - echo "\nAPI is up!"
 
-  # Docker tasks
+  api:stop:
+    desc: Stop the background API using saved PID
+    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
+    cmds:
+      - |
+        if [ -f ../.server.pid ]; then
+          PID=$(cat ../.server.pid)
+          echo "Stopping API (PID $PID)..."
+          bash -c "kill $PID" || true
+          rm ../.server.pid
+        else
+          echo "No PID file found. Kill any process on port 5198 as fallback..."
+          lsof -ti:5198 | xargs kill -9 || true
+        fi
 
-  docker-build:
+  # ==============================================================================
+  # BRUNO - API Test Suites
+  # ==============================================================================
+
+  bruno:run:
+    desc: Run all Bruno API tests
+    dir: ./bruno/OpenAPI_Petstore
+    cmds:
+      - echo "Running Bruno tests..."
+      - bru run --env Local
+
+  bruno:run-main-suite:
+    desc: Run main pet test suite (6 tests - CRUD operations)
+    dir: ./bruno/OpenAPI_Petstore
+    cmds:
+      - bru run pet/main-pet-test-suite --env Local
+
+  bruno:run-validation-suite:
+    desc: Run validation test suite (13 tests - FluentValidation)
+    dir: ./bruno/OpenAPI_Petstore
+    cmds:
+      - bru run pet/validation-pet-test-suite --env Local
+
+  bruno:run-all-suites:
+    desc: Run both main + validation suites (19 tests total)
+    cmds:
+      - task: bruno:run-main-suite
+      - task: bruno:run-validation-suite
+
+  bruno:run-single:
+    desc: Run one or more Bruno test files
+    vars:
+      BRUNO_DIR: ./bruno/OpenAPI_Petstore
+      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+    dir: '{{.BRUNO_DIR}}'
+    cmds:
+      - echo "Running Bruno test(s) - {{.TEST}}"
+      - bru run --env Local {{.TEST}}
+
+  # ==============================================================================
+  # DOCKER - Container Management
+  # ==============================================================================
+
+  docker:build:
     desc: Build Docker image with custom OpenAPI generator
     vars:
       IMAGE_NAME: adamsdavis/minimal-api-generator
       IMAGE_TAG: latest
       OPENAPI_GENERATOR_VERSION: 7.10.0
     deps:
-      - build-generator
+      - generator:build
     cmds:
       - echo "Building Docker image..."
       - |
@@ -169,7 +275,7 @@ tasks:
           .
       - echo "✓ Docker image built - {{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
 
-  docker-push:
+  docker:push:
     desc: Push Docker image to registry
     vars:
       IMAGE_NAME: adamsdavis/minimal-api-generator
@@ -179,7 +285,7 @@ tasks:
       - podman push {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
       - echo "✓ Image pushed - {{.IMAGE_NAME}}:{{.IMAGE_TAG}}"
 
-  docker-test:
+  docker:test:
     desc: Test Docker image by generating code
     vars:
       IMAGE_NAME: adamsdavis/minimal-api-generator
@@ -203,88 +309,65 @@ tasks:
       - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Commands/AddPetCommand.cs || (echo "❌ MediatR Commands NOT found" && exit 1)
       - echo "✅ All validation checks passed"
 
+  # ==============================================================================
+  # CLEAN - Cleanup Tasks
+  # ==============================================================================
 
-  # 1. Orchestration Task
-  # This runs the full lifecycle: Start -> Wait -> Test -> Stop
+  clean:generated:
+    desc: Clean only generated Minimal API code (keeps generator artifacts)
+    cmds:
+      - echo "Cleaning generated Minimal API code..."
+      - rm -rf {{.TEST_OUTPUT_DIR}}
+      - echo "✓ Generated API code cleaned"
+
+  clean:all:
+    desc: Clean all generated code and build artifacts
+    cmds:
+      - echo "Cleaning all generated code..."
+      - rm -rf {{.TEST_OUTPUT_DIR}}
+      - echo "Cleaning generator build artifacts..."
+      - |
+        cd generator
+        mvn clean
+      - echo "✓ Cleaned"
+
+  # ==============================================================================
+  # LEGACY ALIASES - Deprecated, use namespaced versions above
+  # ==============================================================================
+
+  build-generator:
+    desc: "[DEPRECATED] Use generator:build"
+    cmds:
+      - task: generator:build
+
+  generate-petstore-minimal-api:
+    desc: "[DEPRECATED] Use gen:petstore"
+    cmds:
+      - task: gen:petstore
+        vars:
+          ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS}}'
+
+  copy-test-stubs:
+    desc: "[DEPRECATED] Use gen:copy-test-stubs"
+    cmds:
+      - task: gen:copy-test-stubs
+
+  quick-test:
+    desc: "[DEPRECATED] Use test:unit"
+    cmds:
+      - task: test:unit
+
   test-ci:
-    desc: "Modern approach using defer for cleanup"
+    desc: "[DEPRECATED] Use test:integration"
     cmds:
-      - task: api:start
-      - defer: { task: api:stop } # This runs when test-ci finishes, success or fail
-      - task: api:wait
-      - task: bruno:run
+      - task: test:integration
 
-  single-bruno-test:
-    desc: "Run one or more Bruno tests with full lifecycle (usage: task single-bruno-test TEST='pet/add-pet.bru pet/delete-pet.bru')"
-    vars:
-      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+  run-petstore-api:
+    desc: "[DEPRECATED] Use api:run"
     cmds:
-      - task: api:start
-      - defer: { task: api:stop }
-      - task: api:wait
-      - task: bruno:run-single
-        vars: {TEST: '{{.TEST}}'}
+      - task: api:run
 
-
-  # 2. Start API in Background
-  api:start:
-    desc: "Starts the .NET API in the background and saves the PID."
-    deps:
-      - copy-test-stubs
-    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
+  clean-generated-api:
+    desc: "[DEPRECATED] Use clean:generated"
     cmds:
-      # 'nohup' prevents the process from dying if the shell closes.
-      # '> /dev/null 2>&1' silences output (optional, remove to see logs).
-      # '&' runs it in the background.
-      # 'echo $! > .server.pid' saves the Process ID to a file.
-      - bash -c 'nohup dotnet run > /dev/null 2>&1 & echo $! > ../.server.pid'
-      - echo "API starting with PID $(cat ../.server.pid)..."
-
-  # 3. Wait for Health Check
-  api:wait:
-    desc: "Waits until the API is available on the port."
-    cmds:
-      - echo "Waiting for API to be healthy..."
-      # Loops until localhost:5198 gives a 200 OK. Adjust port/path as needed.
-      - |
-        until curl --output /dev/null --silent --head --fail -X GET http://localhost:5198/health; do
-          printf '.'
-          sleep 1
-        done
-      - echo "\nAPI is up!"
-
-  # 4. Run Bruno Tests
-  bruno:run:
-    desc: "Runs Bruno API tests."
-    dir: ./bruno/OpenAPI_Petstore
-    cmds:
-      - echo "Running Bruno tests..."
-      # Assumes your .bru files are in a 'tests' folder
-      - bru run --env Local
-
-  bruno:run-single:
-    desc: "Runs one or more Bruno test files."
-    vars:
-      BRUNO_DIR: ./bruno/OpenAPI_Petstore
-      TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
-    dir: '{{.BRUNO_DIR}}'
-    cmds:
-      - echo "Running Bruno test(s) - {{.TEST}}"
-      - bru run --env Local {{.TEST}}
-
-  # 5. Shutdown Server
-  api:stop:
-    desc: "Stops the background API using the saved PID."
-    dir: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
-    cmds:
-      # Check if PID file exists, read it, kill process, remove file.
-      - |
-        if [ -f ../.server.pid ]; then
-          PID=$(cat ../.server.pid)
-          echo "Stopping API (PID $PID)..."
-          bash -c "kill $PID" || true
-          rm ../.server.pid
-        else
-          echo "No PID file found. Kill any process on port 5198 as fallback..."
-          lsof -ti:5198 | xargs kill -9 || true
-        fi
+      - task: clean:generated

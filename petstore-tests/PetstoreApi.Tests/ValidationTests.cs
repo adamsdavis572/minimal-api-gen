@@ -61,7 +61,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -82,7 +82,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -103,7 +103,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = null!, // Required property missing
             Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -124,7 +124,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
-            Status = "available"
+            Status = UpdatePetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -252,7 +252,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "",
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -271,7 +271,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = new string('a', 101),
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -292,7 +292,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "Fluffy",
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Invalid-Name!" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -335,7 +335,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "Fluffy",
             PhotoUrls = new List<string>(),
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -354,7 +354,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "Fluffy",
             PhotoUrls = Enumerable.Range(1, 11).Select(i => $"http://example.com/photo{i}.jpg").ToList(),
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -375,7 +375,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "Fluffy",
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Category = new CategoryDto { Id = 1, Name = "!" }, // Invalid pattern
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -396,7 +396,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "", // Too short
             PhotoUrls = new List<string>(), // Too few
             Category = new CategoryDto { Id = 1, Name = "!" }, // Invalid pattern
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -422,7 +422,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
             Name = "", // Validation error
             PhotoUrls = new List<string> { "http://example.com/photo.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act

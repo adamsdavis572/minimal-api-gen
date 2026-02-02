@@ -1,6 +1,7 @@
 package org.openapitools.codegen.languages;
 
 import org.openapitools.codegen.CodegenConfig;
+import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenOperation;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
@@ -35,11 +36,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String USE_API_VERSIONING = "useApiVersioning";
     public static final String USE_GLOBAL_EXCEPTION_HANDLER = "useGlobalExceptionHandler";
     public static final String USE_MEDIATR = "useMediatr";
+    public static final String USE_NUGET_PACKAGING = "useNugetPackaging";
     public static final String ROUTE_PREFIX = "routePrefix";
     public static final String VERSIONING_PREFIX = "versioningPrefix";
     public static final String API_VERSION = "apiVersion";
     public static final String SOLUTION_GUID = "solutionGuid";
     public static final String PROJECT_CONFIGURATION_GUID = "projectConfigurationGuid";
+    public static final String CONTRACTS_PROJECT_GUID = "contractsProjectGuid";
 
     private final Logger LOGGER = LoggerFactory.getLogger(MinimalApiServerCodegen.class);
 
@@ -51,11 +54,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     private boolean useApiVersioning = false;
     private boolean useGlobalExceptionHandler = true;
     private boolean useMediatr = false;
+    private boolean useNugetPackaging = false;
     private String routePrefix = "api";
     private String versioningPrefix = "v";
     private String apiVersion = "1";
     private String solutionGuid = null;
     private String projectConfigurationGuid = null;
+    private String contractsProjectGuid = null;
+    private String generatedFolder = null; // Path for generated code (Commands, Queries, DTOs, etc.)
 
 
     public CodegenType getTag() {
@@ -92,6 +98,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         addSwitch(USE_API_VERSIONING, "Enable API versioning.", useApiVersioning);
         addSwitch(USE_GLOBAL_EXCEPTION_HANDLER, "Enable global exception handling middleware.", useGlobalExceptionHandler);
         addSwitch(USE_MEDIATR, "Enable MediatR CQRS pattern with commands, queries, and handlers.", useMediatr);
+        addSwitch(USE_NUGET_PACKAGING, "Generate separate NuGet package project for API contracts.", useNugetPackaging);
         addOption(ROUTE_PREFIX, "The route prefix for the API. Used only if useApiVersioning is true", routePrefix);
         addOption(VERSIONING_PREFIX, "The versioning prefix for the API. Used only if useApiVersioning is true", versioningPrefix);
         addOption(API_VERSION, "The version of the API. Used only if useApiVersioning is true", apiVersion);
@@ -112,11 +119,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         setUseApiVersioning();
         setUseGlobalExceptionHandler();
         setUseMediatr();
+        setUseNugetPackaging();
         setRoutePrefix();
         setVersioningPrefix();
         setApiVersion();
         setSolutionGuid();
         setProjectConfigurationGuid();
+        setContractsProjectGuid();
         
         // Extract basePath from server URL for endpoint routing
         setBasePath();
@@ -137,6 +146,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         apiPackage = "Features";
         modelPackage = "Models";
         String packageFolder = sourceFolder + File.separator + packageName;
+        // For NuGet packaging: API contract goes to Contract/, templates go to Implementation
+        this.generatedFolder = useNugetPackaging ? "Contract" : packageFolder;
 
         if (useAuthentication) {
             supportingFiles.add(new SupportingFile("loginRequest.mustache", packageFolder + File.separator + apiPackage, "LoginRequest.cs"));
@@ -146,7 +157,15 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         supportingFiles.add(new SupportingFile("readme.mustache", "", "README.md"));
         supportingFiles.add(new SupportingFile("gitignore", "", ".gitignore"));
         supportingFiles.add(new SupportingFile("solution.mustache", "", packageName + ".sln"));
-        supportingFiles.add(new SupportingFile("project.csproj.mustache", packageFolder, packageName + ".csproj"));
+        
+        // Conditional project structure: dual-project (NuGet) vs single-project (default)
+        if (useNugetPackaging) {
+            generateNugetPackageProject();
+            generateImplementationProject();
+        } else {
+            supportingFiles.add(new SupportingFile("project.csproj.mustache", packageFolder, packageName + ".csproj"));
+        }
+        
         supportingFiles.add(new SupportingFile("Properties" + File.separator + "launchSettings.json", packageFolder + File.separator + "Properties", "launchSettings.json"));
 
         supportingFiles.add(new SupportingFile("appsettings.json", packageFolder, "appsettings.json"));
@@ -155,12 +174,16 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         supportingFiles.add(new SupportingFile("program.mustache", packageFolder, "Program.cs"));
         
         // Enum converter that supports JsonPropertyName attributes
+        // For NuGet packaging: Converters go to Contract/ (they serialize DTOs)
+        String convertersFolder = useNugetPackaging ? 
+            "Contract" + File.separator + "Converters" :
+            packageFolder + File.separator + "Converters";
         supportingFiles.add(new SupportingFile("EnumMemberJsonConverter.mustache",
-            packageFolder + File.separator + "Converters", "EnumMemberJsonConverter.cs"));
+            convertersFolder, "EnumMemberJsonConverter.cs"));
         
         // Factory for creating enum converters globally
         supportingFiles.add(new SupportingFile("EnumMemberJsonConverterFactory.mustache",
-            packageFolder + File.separator + "Converters", "EnumMemberJsonConverterFactory.cs"));
+            convertersFolder, "EnumMemberJsonConverterFactory.cs"));
         
         // Minimal API: EndpointMapper extension for MapAllEndpoints()
         supportingFiles.add(new SupportingFile("endpointMapper.mustache", 
@@ -176,6 +199,31 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             supportingFiles.add(new SupportingFile("ValidationBehavior.mustache",
                 packageFolder + File.separator + "Behaviors", "ValidationBehavior.cs"));
         }
+    }
+
+    private void generateNugetPackageProject() {
+        String contractsFolder = sourceFolder + File.separator + packageName + ".Contracts";
+        
+        // Contracts .csproj file
+        supportingFiles.add(new SupportingFile("nuget-project.csproj.mustache", 
+            contractsFolder, packageName + ".Contracts.csproj"));
+        
+        // Extension methods for Contracts project
+        supportingFiles.add(new SupportingFile("endpointExtensions.mustache", 
+            contractsFolder + File.separator + "Extensions", "EndpointExtensions.cs"));
+        
+        if (useValidators) {
+            supportingFiles.add(new SupportingFile("validatorExtensions.mustache", 
+                contractsFolder + File.separator + "Extensions", "ValidatorExtensions.cs"));
+        }
+    }
+
+    private void generateImplementationProject() {
+        String packageFolder = sourceFolder + File.separator + packageName;
+        
+        // Implementation .csproj file (references Contracts project)
+        supportingFiles.add(new SupportingFile("implementation-project.csproj.mustache", 
+            packageFolder, packageName + ".csproj"));
     }
 
     @Override
@@ -276,6 +324,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         }
     }
 
+    private void setUseNugetPackaging() {
+        if (additionalProperties.containsKey(USE_NUGET_PACKAGING)) {
+            useNugetPackaging = convertPropertyToBooleanAndWriteBack(USE_NUGET_PACKAGING);
+        } else {
+            additionalProperties.put(USE_NUGET_PACKAGING, useNugetPackaging);
+        }
+    }
+
     private void setRoutePrefix() {
         if (additionalProperties.containsKey(ROUTE_PREFIX)) {
             routePrefix = (String) additionalProperties.get(ROUTE_PREFIX);
@@ -315,6 +371,15 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         } else {
             projectConfigurationGuid = "{" + randomUUID().toString().toUpperCase(Locale.ROOT) + "}";
             additionalProperties.put(PROJECT_CONFIGURATION_GUID, projectConfigurationGuid);
+        }
+    }
+
+    private void setContractsProjectGuid() {
+        if (additionalProperties.containsKey(CONTRACTS_PROJECT_GUID)) {
+            contractsProjectGuid = (String) additionalProperties.get(CONTRACTS_PROJECT_GUID);
+        } else {
+            contractsProjectGuid = "{" + randomUUID().toString().toUpperCase(Locale.ROOT) + "}";
+            additionalProperties.put(CONTRACTS_PROJECT_GUID, contractsProjectGuid);
         }
     }
     
@@ -361,6 +426,23 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // This is called during file generation with the tag or operation name
         return super.toApiFilename(name);
     }
+
+    @Override
+    public String modelFileFolder() {
+        if (useNugetPackaging) {
+            // Models are templates for Implementation project, not in Contract/
+            return outputFolder + File.separator + sourceFolder + File.separator + packageName + File.separator + "Models";
+        }
+        return super.modelFileFolder();
+    }
+
+    @Override
+    public String apiFileFolder() {
+        if (useNugetPackaging) {
+            return outputFolder + File.separator + "Contract" + File.separator + "Endpoints";
+        }
+        return super.apiFileFolder();
+    }
     
     @Override
     protected void processOperation(CodegenOperation operation) {
@@ -387,6 +469,15 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                     LOGGER.info("Operation '{}' has model-type query parameter '{}' - will use JSON deserialization from query string", 
                         operation.operationId, param.paramName);
                 }
+                // FR-027: Convert Model types to DTO types for query/path parameters (Contract-First CQRS)
+                // Don't convert array/collection types (they contain primitive or already-converted types)
+                // Don't convert enum types - ASP.NET Core Minimal APIs can parse enums from strings natively
+                if ((param.isQueryParam || param.isPathParam) && param.isModel && !param.isContainer) {
+                    String originalType = param.dataType;
+                    param.dataType = originalType + "Dto";
+                    LOGGER.info("Converted parameter '{}' type from {} to {} for Contract-First CQRS", 
+                        param.paramName, originalType, param.dataType);
+                }
             }
         }
         
@@ -397,6 +488,15 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                     String innerType = param.items != null ? param.items.dataType : "string";
                     param.dataType = innerType + "[]";
                 }
+                // FR-027: Convert Model types to DTO types for query parameters (Contract-First CQRS)
+                // Don't convert array/collection types (they contain primitive or already-converted types)
+                // Don't convert enum types - ASP.NET Core Minimal APIs can parse enums from strings natively
+                if (param.isModel && !param.isContainer) {
+                    String originalType = param.dataType;
+                    param.dataType = originalType + "Dto";
+                    LOGGER.info("Converted query parameter '{}' type from {} to {} for Contract-First CQRS", 
+                        param.paramName, originalType, param.dataType);
+                }
             }
         }
 
@@ -405,6 +505,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             String mediatrResponseType = getMediatrResponseType(operation);
             operation.vendorExtensions.put("mediatrResponseType", mediatrResponseType);
             operation.vendorExtensions.put("isUnit", "Unit".equals(mediatrResponseType));
+            
+            // Add DTO response type for Contract-First CQRS (FR-027)
+            String dtoResponseType = getResponseDtoType(operation);
+            operation.vendorExtensions.put("dtoResponseType", dtoResponseType);
             
             // For DELETE operations, set returnType to bool so template conditions work
             if ("DELETE".equalsIgnoreCase(operation.httpMethod) && "bool".equals(mediatrResponseType)) {
@@ -543,6 +647,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 }
             }
         }
+        
+        // Generate response DTOs from all models (FR-027: Commands/Queries return DTO types)
+        generateResponseDtos(compiler, allModels);
         
         return results;
     }
@@ -700,6 +807,72 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     }
     
     /**
+     * Generate response DTOs from all models in the OpenAPI specification.
+     * This ensures every Model has a corresponding DTO for use in Command/Query response types.
+     * FR-027: Commands/Queries must return DTO types (PetDto, OrderDto, UserDto) not Model types.
+     * 
+     * @param compiler The Mustache compiler instance
+     * @param allModels List of all models from the OpenAPI spec
+     */
+    private void generateResponseDtos(Mustache.Compiler compiler, List<ModelMap> allModels) {
+        if (allModels == null || allModels.isEmpty()) {
+            return;
+        }
+        
+        LOGGER.info("Generating response DTOs for {} models", allModels.size());
+        
+        for (ModelMap modelMap : allModels) {
+            if (modelMap.getModel() == null) {
+                continue;
+            }
+            
+            CodegenModel model = modelMap.getModel();
+            String modelName = model.getClassname();
+            String dtoName = modelName + "Dto";
+            
+            try {
+                // Prepare DTO data from model
+                Map<String, Object> dtoData = new HashMap<>();
+                dtoData.put("packageName", packageName);
+                dtoData.put("classname", dtoName);
+                dtoData.put("description", model.getDescription());
+                
+                // Clone and convert model properties for DTO
+                List<CodegenProperty> dtoVars = new ArrayList<>();
+                for (CodegenProperty prop : model.getVars()) {
+                    CodegenProperty dtoProp = prop.clone();
+                    
+                    // Strip regex delimiters from pattern
+                    if (dtoProp.pattern != null && dtoProp.pattern.startsWith("/") && dtoProp.pattern.endsWith("/")) {
+                        dtoProp.pattern = dtoProp.pattern.substring(1, dtoProp.pattern.length() - 1);
+                    }
+                    
+                    // Convert complex types to DTO equivalents
+                    if (prop.complexType != null && !prop.isContainer) {
+                        // Single complex type: Category -> CategoryDto
+                        dtoProp.dataType = prop.complexType + "Dto";
+                        dtoProp.datatypeWithEnum = prop.complexType + "Dto";
+                    } else if (prop.isContainer && prop.complexType != null) {
+                        // Collection of complex types: List<Tag> -> List<TagDto>
+                        dtoProp.dataType = dtoProp.dataType.replace(prop.complexType, prop.complexType + "Dto");
+                        dtoProp.datatypeWithEnum = dtoProp.datatypeWithEnum.replace(prop.complexType, prop.complexType + "Dto");
+                    }
+                    dtoVars.add(dtoProp);
+                }
+                dtoData.put("vars", dtoVars);
+                dtoData.put("hasVars", !dtoVars.isEmpty());
+                
+                // Generate DTO file
+                writeDtoFile(compiler, dtoData);
+                LOGGER.info("Generated response DTO: {}.cs", dtoName);
+                
+            } catch (Exception e) {
+                LOGGER.error("Failed to generate response DTO for model '{}': {}", modelName, e.getMessage(), e);
+            }
+        }
+    }
+    
+    /**
      * Generate command/query and handler files for a single operation using Mustache template engine.
      * This is the proper T009 implementation - files get full operation data context.
      * 
@@ -728,6 +901,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         data.put("requestClassName", requestClassName);
         data.put("handlerClassName", handlerClassName);
         data.put("mediatrResponseType", operation.vendorExtensions.get("mediatrResponseType"));
+        data.put("dtoResponseType", operation.vendorExtensions.get("dtoResponseType"));
+        data.put("returnType", operation.returnType);
+        data.put("returnBaseType", operation.returnBaseType);
         data.put("isUnit", operation.vendorExtensions.get("isUnit"));
         data.put("allParams", operation.allParams);
         data.put("queryParams", operation.queryParams);
@@ -749,8 +925,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Generate handler file (with existence check per R4)
         String handlerFolder = "Handlers";
         String handlerFile = handlerClassName + ".cs";
-        String packageFolder = sourceFolder + File.separator + packageName;
-        String handlerPath = outputFolder + File.separator + packageFolder + 
+        String handlerPath = outputFolder + File.separator + generatedFolder + 
             File.separator + handlerFolder + File.separator + handlerFile;
         
         File handlerFileObj = new File(handlerPath);
@@ -786,8 +961,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                                  .execute(data);
         
         // Construct output path
-        String packageFolder = sourceFolder + File.separator + packageName;
-        String relativePath = packageFolder + File.separator + folder + File.separator + filename;
+        // For NuGet packaging: Handlers go to Implementation (templates), everything else to Contract (package)
+        String relativePath;
+        if (useNugetPackaging && "Handlers".equals(folder)) {
+            relativePath = sourceFolder + File.separator + packageName + File.separator + folder + File.separator + filename;
+        } else {
+            relativePath = generatedFolder + File.separator + folder + File.separator + filename;
+        }
         File outputFile = new File(outputFolder, relativePath);
         
         // Ensure directory exists
@@ -818,6 +998,114 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         
         // Direct model type or primitive
         return operation.returnType;
+    }
+
+    /**
+     * Get the DTO response type for Contract-First CQRS architecture.
+     * Commands/Queries MUST return DTO types (not Model/Domain types) to ensure
+     * Contract package has zero dependencies on Implementation project.
+     * 
+     * FR-027: Commands and Queries return IRequest<TDto>, never IRequest<TModel>
+     * 
+     * @param operation The CodegenOperation to analyze
+     * @return The DTO response type string for IRequest<TDto>
+     */
+    private String getResponseDtoType(CodegenOperation operation) {
+        if (operation.returnType == null || operation.returnType.equals("void")) {
+            // DELETE operations should return bool (success/notfound)
+            if (operation.httpMethod != null && operation.httpMethod.equalsIgnoreCase("DELETE")) {
+                return "bool";
+            }
+            return "Unit"; // MediatR.Unit for other void operations
+        }
+        
+        if (operation.returnContainer != null && operation.returnContainer.equals("array")) {
+            // Array responses use IEnumerable<TDto>
+            // Convention: Model "Pet" -> DTO "PetDto"
+            String dtoType = operation.returnBaseType;
+            if (!dtoType.endsWith("Dto") && !isPrimitiveType(dtoType)) {
+                dtoType = dtoType + "Dto";
+            }
+            return "IEnumerable<" + dtoType + ">";
+        }
+        
+        if (operation.returnContainer != null && operation.returnContainer.equals("map")) {
+            // Dictionary responses are already correct - Dictionary<string, int>
+            return operation.returnType;
+        }
+        
+        // Check if returnType is a generic type (contains < and >)
+        if (operation.returnType.contains("<") && operation.returnType.contains(">")) {
+            // Generic type like List<Pet> or Dictionary<string, int>
+            // For List/IEnumerable of models, convert to IEnumerable<ModelDto>
+            if (operation.returnType.startsWith("List<") || operation.returnType.startsWith("IEnumerable<")) {
+                String innerType = extractGenericType(operation.returnType);
+                if (!innerType.endsWith("Dto") && !isPrimitiveType(innerType)) {
+                    innerType = innerType + "Dto";
+                }
+                return "IEnumerable<" + innerType + ">";
+            }
+            // For Dictionary and other generic types, return as-is
+            return operation.returnType;
+        }
+        
+        // Single object response - convert Model to DTO
+        String dtoType = operation.returnType;
+        
+        // Primitive types (int, string, bool, etc.) don't need Dto suffix
+        if (isPrimitiveType(dtoType)) {
+            return dtoType;
+        }
+        
+        // Model types: Pet -> PetDto, Order -> OrderDto
+        if (!dtoType.endsWith("Dto")) {
+            dtoType = dtoType + "Dto";
+        }
+        
+        return dtoType;
+    }
+
+    /**
+     * Extract the inner type from a generic type declaration.
+     * Example: "List<Pet>" -> "Pet", "Dictionary<string, int>" -> "string, int"
+     */
+    private String extractGenericType(String genericType) {
+        int startIndex = genericType.indexOf('<');
+        int endIndex = genericType.lastIndexOf('>');
+        if (startIndex >= 0 && endIndex > startIndex) {
+            return genericType.substring(startIndex + 1, endIndex);
+        }
+        return genericType;
+    }
+
+    /**
+     * Check if a type is a primitive C# type that doesn't need DTO conversion.
+     * @param typeName The type name to check
+     * @return true if primitive, false otherwise
+     */
+    private boolean isPrimitiveType(String typeName) {
+        if (typeName == null) {
+            return false;
+        }
+        
+        // Remove nullable marker for checking
+        String baseType = typeName.replace("?", "");
+        
+        return baseType.equals("int") ||
+               baseType.equals("long") ||
+               baseType.equals("float") ||
+               baseType.equals("double") ||
+               baseType.equals("decimal") ||
+               baseType.equals("bool") ||
+               baseType.equals("string") ||
+               baseType.equals("byte") ||
+               baseType.equals("short") ||
+               baseType.equals("char") ||
+               baseType.equals("DateTime") ||
+               baseType.equals("DateTimeOffset") ||
+               baseType.equals("Guid") ||
+               baseType.equals("TimeSpan") ||
+               baseType.equals("Unit");
     }
 
     /**

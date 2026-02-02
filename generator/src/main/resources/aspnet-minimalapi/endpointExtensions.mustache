@@ -1,0 +1,20 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+
+namespace {{packageName}}.Contracts.Extensions;
+
+public static class EndpointExtensions
+{
+    /// <summary>
+    /// Registers all API endpoints from the Contracts package.
+    /// </summary>
+    /// <param name="endpoints">The endpoint route builder.</param>
+    /// <returns>The endpoint route builder for chaining.</returns>
+    public static IEndpointRouteBuilder AddApiEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        // This method will be enhanced in Phase 3.4 to iterate over all endpoint classes
+        // For now, it's a placeholder that returns the builder
+        // TODO: Add MapXEndpoints() calls for each tag
+        return endpoints;
+    }
+}

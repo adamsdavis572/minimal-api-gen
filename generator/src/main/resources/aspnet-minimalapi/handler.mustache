@@ -18,7 +18,7 @@ namespace {{packageName}}.Handlers;
 /// <summary>
 /// Handler for {{requestClassName}}
 /// </summary>
-public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{mediatrResponseType}}}>
+public partial class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{dtoResponseType}}}>
 {
     // TODO: Add dependencies via constructor injection
     // Example:
@@ -36,15 +36,13 @@ public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{med
     /// <summary>
     /// Handles the {{requestClassName}} request
     /// </summary>
-    public async Task<{{{mediatrResponseType}}}> Handle({{requestClassName}} request, CancellationToken cancellationToken)
+    public async Task<{{{dtoResponseType}}}> Handle({{requestClassName}} request, CancellationToken cancellationToken)
     {
 {{#hasBodyParam}}
-        // TODO: Map DTO to Model
-        // Example mapping (customize based on your domain model):
-        // var model = new {{bodyParam.dataType}}
-        // {
-        //     // Map properties from request.{{bodyParam.paramName}} to model
-        // };
+        // TODO: Implement business logic
+        // 1. Map Command/Query to Domain Entity using MapCommandToDomain()
+        // 2. Execute business logic (save to database, call services, etc.)
+        // 3. Map Domain Entity to DTO using MapDomainToDto()
         
 {{/hasBodyParam}}
         // TODO: Implement {{operationId}} logic
@@ -57,4 +55,61 @@ public class {{handlerClassName}} : IRequestHandler<{{requestClassName}}, {{{med
         throw new NotImplementedException("Handler for {{operationId}} not yet implemented");
         {{/isUnit}}
     }
+
+    // ========================================================================
+    // SCAFFOLDED MAPPING METHODS - Customize these for your domain logic
+    // ========================================================================
+
+{{^isUnit}}
+{{#hasBodyParam}}
+    /// <summary>
+    /// Map Command/Query properties to Domain Entity.
+    /// TODO: Customize this method for your domain model.
+    /// </summary>
+    private {{bodyParam.dataType}} MapCommandToDomain({{requestClassName}} command)
+    {
+        // TODO: Implement mapping logic
+        // Example:
+        // return new {{bodyParam.dataType}}
+        // {
+        //     Name = command.Name,
+        //     Status = MapEnumToDomain(command.Status),
+        //     Category = command.Category != null ? new Category { /* map properties */ } : null
+        // };
+        throw new NotImplementedException("MapCommandToDomain not yet implemented");
+    }
+
+{{/hasBodyParam}}
+    /// <summary>
+    /// Map Domain Entity to DTO for response.
+    /// TODO: Customize this method for your API contract.
+    /// </summary>
+    private {{{dtoResponseType}}} MapDomainToDto({{#returnBaseType}}{{returnBaseType}}{{/returnBaseType}}{{^returnBaseType}}{{returnType}}{{/returnBaseType}} domainEntity)
+    {
+        // TODO: Implement mapping logic
+        // Example:
+        // return new {{{dtoResponseType}}}
+        // {
+        //     Id = domainEntity.Id,
+        //     Name = domainEntity.Name,
+        //     Status = MapEnumToDto(domainEntity.Status),
+        //     Category = domainEntity.Category != null ? new CategoryDto { /* map properties */ } : null
+        // };
+        throw new NotImplementedException("MapDomainToDto not yet implemented");
+    }
+
+    // TODO: Add enum mapping methods as needed for your enums
+    // Example:
+    // private Pet.StatusEnum MapEnumToDomain(StatusEnum dtoEnum)
+    // {
+    //     // TODO: Handle error cases (invalid enum values, null handling)
+    //     return (Pet.StatusEnum)dtoEnum;
+    // }
+    //
+    // private StatusEnum MapEnumToDto(Pet.StatusEnum domainEnum)
+    // {
+    //     // TODO: Handle error cases (invalid enum values, null handling)
+    //     return (StatusEnum)domainEnum;
+    // }
+{{/isUnit}}
 }

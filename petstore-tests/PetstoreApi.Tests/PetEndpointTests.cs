@@ -34,7 +34,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = new List<string> { "http://example.com/fluffy.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             Tags = new List<TagDto> { new TagDto { Id = 1, Name = "friendly" } },
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -62,7 +62,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = new List<string> { "http://example.com/buddy.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             Tags = new List<TagDto>(),
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
         var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);
@@ -98,7 +98,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = new List<string> { "http://example.com/charlie.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Cats" },
             Tags = new List<TagDto>(),
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
         var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);
@@ -111,7 +111,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = addedPet.PhotoUrls,
             Category = new CategoryDto { Id = addedPet.Category.Id, Name = addedPet.Category.Name },
             Tags = addedPet.Tags?.Select(t => new TagDto { Id = t.Id, Name = t.Name }).ToList() ?? new List<TagDto>(),
-            Status = "sold"
+            Status = UpdatePetDto.StatusEnum.SoldEnum
         };
 
         // Act
@@ -136,7 +136,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = new List<string> { "http://example.com/ghost.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Cats" },
             Tags = new List<TagDto>(),
-            Status = "available"
+            Status = UpdatePetDto.StatusEnum.AvailableEnum
         };
 
         // Act
@@ -156,7 +156,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             PhotoUrls = new List<string> { "http://example.com/max.jpg" },
             Category = new CategoryDto { Id = 1, Name = "Dogs" },
             Tags = new List<TagDto>(),
-            Status = "available"
+            Status = AddPetDto.StatusEnum.AvailableEnum
         };
         var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);

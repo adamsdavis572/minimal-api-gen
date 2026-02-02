@@ -9,6 +9,101 @@
 
 Enable OpenAPI Generator to produce NuGet packages containing API contracts (Endpoints, DTOs, Validators) separate from business logic implementations (Handlers, Models). This allows independent versioning and distribution of API surface, supporting SemVer-based evolution without forcing cascading updates to Handler implementations. Technical approach: Generate two .csproj files (Contracts for NuGet packaging, Implementation for business logic), provide DI extension methods for service registration, and use assembly scanning for auto-discovery of validators and handlers.
 
+## Architecture
+
+### Contract-First CQRS Data Flow
+
+This feature implements a **Contract-First CQRS** architecture where API contracts (Commands/Queries/DTOs) are completely decoupled from domain models. The data flow follows this pattern:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. HTTP Request                                                         │
+│    POST /pets { "name": "Fluffy", "status": "available" }              │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ ASP.NET Core Model Binding
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. Command/Query (Request - IN CONTRACT PACKAGE)                       │
+│    AddPetCommand { Name="Fluffy", Status=StatusEnum.Available }         │
+│    - Command/Query IS the request data (not nested DTO)                │
+│    - Properties map directly to operation parameters                    │
+│    - Type: IRequest<PetDto> (returns DTO, not domain Model)            │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ MediatR.Send()
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. Handler (Business Logic - IN IMPLEMENTATION)                        │
+│    AddPetCommandHandler.Handle(AddPetCommand command)                   │
+│    ├─ MapCommandToDomain(command) → Pet entity                         │
+│    ├─ Call service/repository (save Pet to database)                   │
+│    └─ MapDomainToDto(pet) → PetDto                                     │
+│    - Handler bridges Contract (Command/DTO) and Domain (Entity)        │
+│    - Mapping methods scaffolded with TODO comments for customization   │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ Return PetDto
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. DTO (Response - IN CONTRACT PACKAGE)                                │
+│    PetDto { Id=123, Name="Fluffy", Status=StatusEnum.Available }        │
+│    - DTO has enum types (not strings) with JsonConverter attributes    │
+│    - Framework-agnostic POCO, no domain logic                          │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ JSON Serialization
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. HTTP Response                                                        │
+│    200 OK { "id": 123, "name": "Fluffy", "status": "available" }       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Architectural Principles
+
+1. **Commands/Queries ARE the Request**: No nested input DTOs. Operation parameters become Command/Query properties directly.
+   - ❌ WRONG: `AddPetCommand { AddPetDto pet }` (nested DTO)
+   - ✅ CORRECT: `AddPetCommand { string Name; StatusEnum Status }` (direct properties)
+
+2. **DTOs ARE the Response**: Commands/Queries return `IRequest<TDto>`, never `IRequest<TModel>`.
+   - ❌ WRONG: `AddPetCommand : IRequest<Pet>` (domain Model)
+   - ✅ CORRECT: `AddPetCommand : IRequest<PetDto>` (response DTO)
+
+3. **Zero Cross-Assembly Dependencies**: Contract package never references Implementation.
+   - Contract assembly: Commands, Queries, DTOs, Endpoints, Validators, Converters
+   - Implementation assembly: Handlers, Domain Entities, Program.cs
+   - Handlers reference Contract (Commands/DTOs), but Contract never references Implementation (Models)
+
+4. **Handlers Own Mapping**: Generated with scaffolded mapping methods (TODO comments).
+   - `MapCommandToDomain(command)`: Contract Command → Domain Entity
+   - `MapDomainToDto(entity)`: Domain Entity → Contract DTO
+   - `MapEnumToDomain(dtoEnum)` / `MapEnumToDto(domainEnum)`: Enum conversions
+
+5. **Domain Entities are Internal**: Models in Implementation are `partial` classes for customization, never exposed in API contracts.
+
+### Assembly Separation Strategy
+
+**Contract Package (Contracts.dll - Distributed via NuGet)**:
+- Endpoints: API route definitions
+- Commands/Queries: MediatR request types (input contract)
+- DTOs: Response types (output contract) with enum types and JsonConverter attributes
+- Validators: FluentValidation rules for Commands/Queries
+- Converters: EnumMemberJsonConverter for serialization
+- Extension Methods: AddApiEndpoints(), AddApiValidators()
+
+**Implementation Project (Implementation.dll - Executable)**:
+- Handlers: Business logic with scaffolded mapping (Command→Domain→DTO)
+- Domain/: Domain entity business models as `partial` classes (folder name is Domain/, entity type is Domain Entity)
+- Program.cs: DI setup, middleware, application entry point
+- Extension Methods: AddApiHandlers() (optional)
+
+### Why This Architecture?
+
+**Problem Solved**: Traditional OpenAPI generators couple API contracts to domain models, forcing breaking changes when internal models evolve.
+
+**Solution Benefits**:
+- **Independent Versioning**: Update NuGet contract package without redeploying handlers
+- **Compile-Time Safety**: Breaking API changes cause compilation errors in handlers
+- **Clear Boundaries**: Commands define input, DTOs define output, Domain is internal
+- **Developer Guidance**: Scaffolded mapping methods show where to customize business logic
+
 ## Technical Context
 
 **Language/Version**: 
@@ -16,7 +111,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 - **Generated Code**: C# 11+ / .NET 8.0 (target framework net8.0 in generated .csproj files)
 
 **Primary Dependencies**: 
-- **Generator**: OpenAPI Generator 7.17.0 (pom.xml), Maven 3.8.9+, Mustache template engine, AbstractCSharpCodegen base class
+- **Generator**: OpenAPI Generator 7.17.0 (pom.xml), Maven 3.8.9+, Mustache template engine, AbstractCSharpCodegen base class (MinimalApiServerCodegen extends AbstractCSharpCodegen per constitution)
 - **Generated Code**: 
   - ASP.NET Core 8.0 Minimal APIs framework
   - MediatR 12.2.0 (request/response mediation with assembly scanning)
@@ -332,28 +427,27 @@ test-output/
 │   │   ├── PetstoreApi.Contracts.csproj       # PackageId, Version, Authors, Description
 │   │   ├── Endpoints/
 │   │   │   └── PetEndpoints.cs                # Endpoint registration (public API)
-│   │   ├── DTOs/
-│   │   │   ├── AddPetDto.cs                   # Data transfer objects
-│   │   │   └── PetDto.cs
-│   │   ├── Validators/
-│   │   │   └── AddPetDtoValidator.cs          # FluentValidation validators
-│   │   ├── Commands/                          # MediatR commands
-│   │   │   └── AddPetCommand.cs
-│   │   ├── Queries/                           # MediatR queries
-│   │   │   └── GetPetByIdQuery.cs
+│   │   ├── Commands/                          # MediatR commands (request types)
+│   │   │   └── AddPetCommand.cs               # e.g., AddPetCommand : IRequest<PetDto> { string Name; StatusEnum Status; }
+│   │   ├── Queries/                           # MediatR queries (request types)
+│   │   │   └── GetPetByIdQuery.cs             # e.g., GetPetByIdQuery : IRequest<PetDto> { long PetId; }
+│   │   ├── DTOs/                              # Response data transfer objects
+│   │   │   └── PetDto.cs                      # e.g., PetDto with [JsonConverter(typeof(EnumMemberJsonConverter<StatusEnum>))] on enum properties
+│   │   ├── Validators/                        # FluentValidation validators
+│   │   │   └── AddPetCommandValidator.cs      # Validates AddPetCommand properties
 │   │   ├── Extensions/
 │   │   │   ├── EndpointMapper.cs              # AddApiEndpoints() extension
 │   │   │   └── ServiceCollectionExtensions.cs # AddApiValidators() extension
 │   │   └── Converters/
-│   │       ├── EnumMemberJsonConverter.cs     # JSON serialization support
+│   │       ├── EnumMemberJsonConverter.cs     # JSON serialization support (existing, reused)
 │   │       └── EnumMemberJsonConverterFactory.cs
 │   └── PetstoreApi/                           # Implementation project
 │       ├── PetstoreApi.csproj                 # References PetstoreApi.Contracts via ProjectReference
 │       ├── Handlers/
-│       │   ├── AddPetHandler.cs               # Business logic implementations
-│       │   └── GetPetByIdHandler.cs
-│       ├── Models/
-│       │   └── Pet.cs                         # Domain models (internal)
+│       │   ├── AddPetHandler.cs               # Business logic with scaffolded mapping (MapCommandToDomain, MapDomainToDto)
+│       │   └── GetPetByIdHandler.cs           # IRequestHandler<GetPetByIdQuery, PetDto>
+│       ├── Domain/                            # Domain entity models (internal business logic)
+│       │   └── Pet.cs                         # partial class for business logic customization
 │       ├── Program.cs                         # Entry point with DI setup
 │       ├── appsettings.json
 │       ├── appsettings.Development.json
@@ -374,11 +468,21 @@ test-output/src/PetstoreApi.Contracts/
 
 **Structure Decision**: 
 
-This feature introduces a **dual-project structure** when `useNugetPackaging=true` is enabled:
+This feature introduces a **dual-project structure** with **Contract-First CQRS** architecture when `useNugetPackaging=true` is enabled:
 
-1. **Contracts Project** (`PetstoreApi.Contracts.csproj`): Contains API surface layer (Endpoints, DTOs, Validators, Commands, Queries, Extension Methods). This is the NuGet package that gets distributed via `dotnet pack`.
+1. **Contracts Project** (`PetstoreApi.Contracts.csproj`): Contains API surface layer (Endpoints, Commands, Queries, DTOs, Validators, Converters, Extension Methods). This is the NuGet package that gets distributed via `dotnet pack`.
+   - **Commands/Queries**: ARE the request data structures (e.g., `AddPetCommand : IRequest<PetDto> { string Name; StatusEnum Status; }`)
+   - **DTOs**: ARE the response data structures with enum types and JsonConverter attributes
+   - **Zero dependencies** on Implementation project (no references to domain Models)
 
-2. **Implementation Project** (`PetstoreApi.csproj`): Contains business logic (Handlers, Models, Program.cs). References Contracts project via `<ProjectReference>` during local development. When consuming published NuGet package, this reference changes to `<PackageReference>`.
+2. **Implementation Project** (`PetstoreApi.csproj`): Contains business logic (Handlers, Domain Entities, Program.cs). References Contracts project via `<ProjectReference>` during local development. When consuming published NuGet package, this reference changes to `<PackageReference>`.
+   - **Handlers**: Bridge Contract (Commands/DTOs) and Domain (Entities) with scaffolded mapping methods:
+     - `MapCommandToDomain(command)`: Convert Command properties to Domain Entity
+     - `MapDomainToDto(entity)`: Convert Domain Entity to DTO response
+     - `MapEnumToDomain/ToDto`: Enum conversion scaffolds
+   - **Domain Entities**: `partial` classes for business logic, never exposed in API contracts
+
+**Data Flow**: HTTP Request → Command (deserialized) → Handler (maps Command → Domain Entity → DTO) → HTTP Response (DTO serialized)
 
 When `useNugetPackaging=false` (default), generator produces traditional single-project structure from Features 002-007.
 

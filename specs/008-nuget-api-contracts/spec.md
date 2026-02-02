@@ -27,7 +27,7 @@ As an API developer, when I generate code from an OpenAPI specification, I want 
 
 ### User Story 2 - Inject Services and Handlers from Host Application (Priority: P0 - Critical)
 
-As an API developer, when I consume a NuGet package containing generated Endpoints, I want a clear extension point in my Program.cs to inject my Handler implementations and any required services (repositories, databases, caches), so that the packaged Endpoints can delegate to my custom business logic without recompiling the package.
+As an API developer, when I consume a NuGet package containing generated Endpoints and Commands/Queries (which use DTO types), I want generated Handler scaffolds with DTO-to-Domain mapping code, so that I can customize business logic while the packaged Endpoints delegate to my Handler implementations without recompiling the package.
 
 **Why this priority**: P0 (blocking) because without service injection, the packaged Endpoints cannot execute business logic. This is the critical integration point between the NuGet package (API surface) and the host application (business logic). This must be designed correctly from the start to avoid breaking changes.
 
@@ -41,6 +41,7 @@ As an API developer, when I consume a NuGet package containing generated Endpoin
 4. **Given** implementation project needing custom services (e.g., IDbContext), **When** registering services in Program.cs, **Then** developer registers custom services in DI container first, then calls `AddApiHandlers()` which resolves services from DI when constructing handlers
 5. **Given** Endpoint receiving HTTP request, **When** executing via MediatR, **Then** the request flows to the custom Handler implementation registered in the host application
 6. **Given** breaking change in OpenAPI spec (new required property), **When** NuGet package is updated, **Then** host application compilation fails with clear error indicating Handler signature mismatch, forcing explicit update
+7. **Given** generated Handler implementation, **When** examining the Handle() method, **Then** it includes scaffolded mapping methods (MapCommandToDomain, MapDomainToDto, MapEnumToDomain) with TODO comments indicating customization points, providing a starting point for developer to customize business logic
 
 ---
 
@@ -99,7 +100,7 @@ As an API consumer, when debugging issues in Endpoints or Validators packaged in
 
 ### Edge Cases
 
-- What happens when a non-backward-compatible change is made to the OpenAPI spec (e.g., removing a property, changing type)? → NuGet package version should follow SemVer (major version bump), consuming applications fail to compile with clear errors pointing to Handler signature mismatches
+- What happens when a non-backward-compatible change is made to the OpenAPI spec (e.g., removing a property, changing type)? → NuGet package version should follow SemVer (major version bump), consuming applications fail to compile with clear errors pointing to Handler signature mismatches where DTO properties no longer exist or have changed types
 - What happens when an Endpoint depends on a service (e.g., ILogger, IConfiguration) that must be injected? → NuGet package Endpoints should use constructor injection for framework services (ILogger, IMediator), host application provides these via DI container
 - What happens when developer wants to publish to a private NuGet feed? → Package metadata includes `<RepositoryUrl>` and developer uses `dotnet nuget push` with feed URL and API key
 - What happens when consuming application uses different .NET version than package targets? → NuGet package should target `net8.0` (lowest supported version), multi-targeting can be added later if needed
@@ -112,11 +113,11 @@ As an API consumer, when debugging issues in Endpoints or Validators packaged in
 ### Functional Requirements
 
 - **FR-001**: Generator MUST create two separate `.csproj` files when `useNugetPackaging=true`: one for NuGet package (API contracts) and one for implementation (business logic)
-- **FR-002**: NuGet package project MUST include only Endpoints/, DTOs/, and Validators/ directories (exclude Handlers/, Models/, Program.cs)
+- **FR-002**: NuGet package project MUST include only Endpoints/, Commands/, Queries/, DTOs/, Validators/, and Converters/ directories (exclude Handlers/, Domain Entities/, Program.cs)
 - **FR-003**: NuGet package project MUST generate a valid `.csproj` with `<GeneratePackageOnBuild>false</GeneratePackageOnBuild>` (require explicit `dotnet pack`)
 - **FR-004**: NuGet package project MUST include dependencies on MediatR, FluentValidation, and ASP.NET Core Minimal APIs packages with correct version constraints
 - **FR-005**: Implementation project MUST reference NuGet package project via `<ProjectReference>` during local development
-- **FR-006**: Implementation project MUST include Handlers/, Models/, Program.cs, and service registration extensions
+- **FR-006**: Implementation project MUST include Handlers/ (with scaffolded mapping code), Domain Entities/ (formerly Models/), Program.cs, and service registration extensions
 - **FR-007**: NuGet package MUST expose a public extension method `AddApiEndpoints(this IEndpointRouteBuilder endpoints)` to register all endpoint routes. This is the only required extension method as there is no standard ASP.NET Core equivalent for bulk endpoint registration.
 - **FR-008**: NuGet package SHOULD provide an extension method `AddApiValidators(this IServiceCollection services)` to register FluentValidation validators (when `useValidators=true`). This is recommended because validators are in the NuGet package assembly (different from Program.cs). Alternatives: `services.AddValidatorsFromAssembly(Assembly.Load("PackageName"))` or `services.AddValidatorsFromAssembly(typeof(SomeDto).Assembly)`.
 - **FR-009**: Implementation project MAY provide an extension method `AddApiHandlers(this IServiceCollection services)` for API consistency, but this is optional. Handlers are in the same assembly as Program.cs, so developers can use standard MediatR registration: `services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly))`.
@@ -137,11 +138,18 @@ As an API consumer, when debugging issues in Endpoints or Validators packaged in
 - **FR-024**: Generated code MUST cause compilation errors for non-backward-compatible OpenAPI changes (renamed properties, removed properties, type changes) to force explicit Handler updates
 - **FR-025**: Implementation project's `AddApiHandlers()` extension method MUST use `services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(...))` to auto-register all IRequestHandler implementations, supporting both generated handlers and developer-added custom handlers without code regeneration
 - **FR-026**: When `useNugetPackaging=true`, generator MUST separate components by assembly: NuGet package (Contracts.dll) contains Endpoints/DTOs/Validators/Commands/Queries, Implementation project (Implementation.dll) contains Handlers/Models/Program.cs. This separation explains why validators need special registration (different assembly) while handlers can use `typeof(Program).Assembly` (same assembly).
+- **FR-027**: Commands and Queries MUST be the request data structures themselves and MUST use DTO types for response types (e.g., `AddPetCommand : IRequest<PetDto>` with request properties on the Command, not `IRequest<Pet>`) to ensure Contract package has zero dependencies on Implementation project and maintains true Contract-First architecture where domain models never leak into API contract. All OpenAPI operation parameters map to Command/Query properties: path parameters (e.g., `/pets/{petId}` → `long PetId`), query parameters (e.g., `?status=available` → `StatusEnum? Status`), and request body schema properties (e.g., `{"name":"Fluffy"}` → `string Name`) become properties with C# types derived from OpenAPI schema types. Note: For complex nested request structures, a Request DTO MAY be used as a property on the Command/Query (e.g., `AddPetCommand { AddPetRequestDto Pet }`) when the OpenAPI request body schema contains nested objects that warrant their own type definition.
+- **FR-028**: ALL enum properties in generated DTOs (response types defined in OpenAPI schemas) MUST include `[JsonConverter(typeof(EnumMemberJsonConverter<EnumType>))]` attributes to enable strict type serialization (string-to-enum mapping) at the API boundary, using the existing `EnumMemberJsonConverter<T>` implementation that supports `JsonPropertyName` attributes on enum members. This applies to all enums whether defined inline in schemas (e.g., `status: { type: string, enum: [available, pending] }`) or referenced via `$ref` (e.g., `status: { $ref: '#/components/schemas/StatusEnum' }`).
+- **FR-029**: Generated Handlers MUST include scaffolded mapping methods (MapCommandToDomain for input mapping, MapDomainToDto for response mapping, MapEnumToDomain/MapEnumToDto for enum conversions) as private methods with TODO comments indicating customization points. Scaffolds provide starting point structure but require developer implementation for production use. Examples of customization: error handling (throw exceptions for invalid states), null checking (handle optional properties), validation (check business rules before mapping), and business logic (compute derived fields). Each TODO comment should guide developers toward specific implementation needs relevant to that mapping step.
 
 ### Key Entities
 
-- **NuGet Package Project**: Separate `.csproj` containing API contracts (Endpoints, DTOs, Validators) intended for distribution via NuGet feed. Outputs `.nupkg` file via `dotnet pack`.
-- **Implementation Project**: Separate `.csproj` containing business logic (Handlers, Models, Program.cs) that consumes NuGet package locally during development and provides service/handler registration.
+- **NuGet Package Project (Contracts)**: Separate `.csproj` containing API contracts (Endpoints, Commands, Queries, DTOs, Validators, Converters) intended for distribution via NuGet feed. Outputs `.nupkg` file via `dotnet pack`. This assembly defines the API surface and has zero dependencies on Implementation.
+- **Implementation Project**: Separate `.csproj` containing business logic (Handlers with mapping code, Domain Entities, Program.cs) that consumes NuGet package locally during development and provides service/handler registration. Contains the executable application.
+- **DTO (Data Transfer Object)**: API contract type representing response data structures defined in OpenAPI schema. Generated with enum types and JsonConverter attributes. DTOs are framework-agnostic POCOs in the Contract package used for operation responses. Examples: `PetDto`, `CategoryDto`, `OrderDto`. Note: Request data is represented by Commands/Queries themselves, not separate input DTOs.
+- **Domain Entity**: Business logic model in Implementation project's Domain/ folder (e.g., `Pet`, `Order`, `User`) with business rules and relationships. Generated as `partial` class scaffolds allowing developer customization. Domain Entities are NOT in Contract package as they represent internal business concepts, not API surface. Folder structure: Implementation/Domain/ contains domain entity classes.
+- **Command/Query**: MediatR request types in Contract package (e.g., `AddPetCommand : IRequest<PetDto>`, `GetPetByIdQuery : IRequest<PetDto>`) that ARE the request data structures themselves with operation parameters as properties. Commands/Queries define the input contract, DTOs define the output contract. No separate input DTO is needed - the Command/Query IS the input DTO.
+- **Handler**: MediatR handler in Implementation project (e.g., `AddPetCommandHandler : IRequestHandler<AddPetCommand, PetDto>`) that executes business logic. Generated with scaffolded mapping methods to convert Command/Query (input) → Domain Entity → DTO (response).
 - **Package Metadata**: Configuration data (packageId, packageVersion, packageAuthors, packageDescription) embedded in NuGet package `.csproj` and visible in NuGet feeds.
 - **Extension Methods**: Public static methods (`AddApiEndpoints`, `AddApiValidators`, `AddApiHandlers`) that encapsulate registration logic for DI container and endpoint routing.
 - **Dependency Injection Container**: ASP.NET Core's `IServiceCollection` used to register services, validators, and handlers; IEndpointRouteBuilder used to register endpoint routes.
@@ -180,6 +188,8 @@ As an API consumer, when debugging issues in Endpoints or Validators packaged in
 - **Feature 007 (DTO Validation Architecture)**: NuGet package includes DTOs and Validators introduced in Feature 007. Packaging structure depends on this architecture.
 - **.NET SDK 8.0+**: NuGet package generation requires .NET SDK for `dotnet pack` command and MSBuild targets.
 - **NuGet CLI Tools**: Developer must have `dotnet nuget` tools available for publishing (not required for generation).
+
+**Constitution Compliance Note (Principle III - Template Reusability)**: JsonConverter attributes on DTOs (FR-028) represent minimal framework coupling acceptable for correct API serialization behavior. While System.Text.Json is technically framework-specific, JSON serialization attributes are considered part of the data contract (similar to DataAnnotations) and necessary for API correctness. This does not violate the spirit of framework-agnostic DTOs as the POCOs remain usable across different API frameworks.
 
 ## Out of Scope
 

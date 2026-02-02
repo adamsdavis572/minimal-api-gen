@@ -8,18 +8,37 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 **Key Features**:
 - Dual-project generation (Contracts for NuGet, Implementation for business logic)
+- **Contract-First CQRS**: Commands/Queries ARE requests (no nested DTOs), DTOs ARE responses (enum types)
+- **Handler Mapping Scaffolds**: Generated handlers include MapCommandToDomain, MapDomainToDto methods with TODO comments
 - Extension methods for service registration (AddApiEndpoints, AddApiValidators, AddApiHandlers)
 - Assembly scanning for auto-discovery of validators and handlers
 - SemVer-based versioning with compile-time safety for breaking changes
 - Symbol package generation for debugging (.snupkg)
+- **Zero Cross-Assembly Dependencies**: Contract package never references Implementation (no Model types in Commands/DTOs)
 
 ## Task Summary
 
-- **Total Tasks**: 136
-- **Parallel Tasks**: 37 (marked with [P])
+- **Total Tasks**: 143 (updated from 136 to include Contract-First CQRS architecture tasks)
+- **Parallel Tasks**: 42 (marked with [P])
 - **Test Strategy**: Unit tests (fast file/XML validation) + Integration tests (Taskfile-based runtime validation)
 - **Bruno Test Suites**: main-pet-test-suite (6 tests), validation-pet-test-suite (13 tests)
 - **Phase Structure**: 9 phases (Setup, Foundational, Testing Infrastructure, US1-P0, US2-P0, US3-P1, US4-P2, US5-P3, Polish)
+- **Architecture Updates**: Added T034-T040 for Contract-First CQRS (FR-027: Commands ARE requests, FR-028: DTO enum JsonConverter, FR-029: Handler mapping scaffolds)
+
+## Architecture Overview
+
+**Contract-First CQRS Data Flow** (per plan.md Architecture section):
+1. HTTP Request → ASP.NET Core Model Binding
+2. Command/Query (request in Contract package) - Properties directly on Command, returns IRequest<TDto>
+3. Handler (business logic in Implementation) - Maps Command → Domain Entity → DTO response
+4. DTO (response in Contract package) - Enum types with JsonConverter attributes
+5. HTTP Response → JSON Serialization
+
+**Key Principles**:
+- Commands/Queries ARE the request (no nested DTOs) - FR-027
+- DTOs ARE the response (enum types with JsonConverter) - FR-028
+- Handlers own mapping (scaffolded methods with TODO comments) - FR-029
+- Zero cross-assembly dependencies (Contract never references Implementation)
 
 ## Dependencies
 
@@ -39,30 +58,31 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 - **Phase 2.5**: T015-T017 can be done in parallel (create Taskfile build tasks)
 - **Phase 3.2**: T021-T023 can be done in parallel (template creation)
 - **Phase 3.4**: T030-T031 can be done in parallel (extension method templates)
-- **Phase 4.1**: T052-T054 can be done in parallel (extension method modifications)
+- **Phase 3.5**: T034-T037, T039 can be done in parallel (Contract-First CQRS templates)
+- **Phase 4.1**: T049-T051 can be done in parallel (extension method modifications - note: task IDs shifted)
 - **US4 and US5**: Can be done in parallel after US1 completes (both only depend on US1)
 
 ## Phase 1: Setup
 
 **Goal**: Initialize project structure and validate existing infrastructure
 
-- [ ] T001 Verify devbox environment (Java 11, Maven 3.8.9+, .NET SDK 8.0+)
+- [X] T001 Verify devbox environment (Java 11, Maven 3.8.9+, .NET SDK 8.0+)
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox version && devbox run java -version && devbox run mvn --version && devbox run dotnet --version`
   - Expected: All tools available via devbox
 
-- [ ] T002 Verify existing generator builds successfully
+- [X] T002 Verify existing generator builds successfully
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox run task build-generator`
   - Expected: BUILD SUCCESS, generator/target/minimal-api-gen-openapi-generator-1.0.0-SNAPSHOT.jar exists
 
-- [ ] T003 Verify existing test-output structure exists
+- [X] T003 Verify existing test-output structure exists
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/`
   - Action: Check for existing generated code structure
   - Expected: Directory exists with src/ folder
   - Note: Taskfile.yml has PETSTORE_SPEC variable (default: ./petstore-tests/petstore.yaml) which can be overridden with OPENAPI_SPEC for version testing
 
-- [ ] T004 Review constitution compliance documented in plan.md
+- [X] T004 Review constitution compliance documented in plan.md
   - Location: `/Users/adam/scratch/git/minimal-api-gen/specs/008-nuget-api-contracts/plan.md`
   - Action: Read Constitution Check section (lines 54-158)
   - Expected: All 5 principles compliant (✅)
@@ -71,17 +91,17 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 **Goal**: Shared prerequisites for all user stories
 
-- [ ] T005 [P] Study existing MinimalApiServerCodegen.java CLI option pattern
+- [X] T005 [P] Study existing MinimalApiServerCodegen.java CLI option pattern
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Review how USE_MEDIATR, USE_VALIDATORS constants are defined and registered
   - Expected: Understand constructor registration, setter methods, processOpts() pattern
 
-- [ ] T006 [P] Study existing template rendering in addSupportingFiles() method
+- [X] T006 [P] Study existing template rendering in addSupportingFiles() method
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Review supportingFiles.add() calls for project.csproj.mustache, solution.mustache
   - Expected: Understand file path construction, mustache template loading
 
-- [ ] T007 [P] Review research.md RQ-001 and RQ-005 for unified generation approach
+- [X] T007 [P] Review research.md RQ-001 and RQ-005 for unified generation approach
   - Location: `/Users/adam/scratch/git/minimal-api-gen/specs/008-nuget-api-contracts/research.md` (lines 1-150, 550-650)
   - Action: Study `<Compile Include>` with Link metadata pattern AND Generated/ directory rationale
   - Expected: Understand unified generation approach:
@@ -95,7 +115,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 **Goal**: Establish testing framework BEFORE implementation begins
 
-- [ ] T008 Create bruno:run-main-suite task
+- [X] T008 Create bruno:run-main-suite task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task:
     ```yaml
@@ -107,7 +127,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Task defined, ready to use in integration tests
 
-- [ ] T009 Create bruno:run-validation-suite task
+- [X] T009 Create bruno:run-validation-suite task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task:
     ```yaml
@@ -119,7 +139,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Task defined for validator testing
 
-- [ ] T010 Create bruno:run-all-suites task
+- [X] T010 Create bruno:run-all-suites task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task:
     ```yaml
@@ -131,7 +151,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Combined test runner for full validation
 
-- [ ] T011 Create integration test task template
+- [X] T011 Create integration test task template
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add comment template for integration tests:
     ```yaml
@@ -143,7 +163,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Structure ready for test tasks
 
-- [ ] T012 Create GeneratedProjectStructureTests.cs skeleton
+- [X] T012 Create GeneratedProjectStructureTests.cs skeleton
   - Location: `/Users/adam/scratch/git/minimal-api-gen/generator-tests/GeneratedProjectStructureTests.cs`
   - Action: Create file with namespace and empty class:
     ```csharp
@@ -157,7 +177,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Test file exists, ready for incremental tests
 
-- [ ] T013 Create CsprojMetadataTests.cs skeleton
+- [X] T013 Create CsprojMetadataTests.cs skeleton
   - Location: `/Users/adam/scratch/git/minimal-api-gen/generator-tests/CsprojMetadataTests.cs`
   - Action: Create file with namespace and empty class:
     ```csharp
@@ -171,7 +191,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Test file exists, ready for incremental tests
 
-- [ ] T014 Create ProjectReferenceTests.cs skeleton
+- [X] T014 Create ProjectReferenceTests.cs skeleton
   - Location: `/Users/adam/scratch/git/minimal-api-gen/generator-tests/ProjectReferenceTests.cs`
   - Action: Create file with namespace and empty class:
     ```csharp
@@ -185,7 +205,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Test file exists, ready for NuGet-specific tests
 
-- [ ] T015 Create build-contracts Taskfile task
+- [X] T015 Create build-contracts Taskfile task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task after existing build tasks:
     ```yaml
@@ -200,7 +220,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Task available for building Contracts project independently
 
-- [ ] T016 Create build-implementation-using-contracts Taskfile task
+- [X] T016 Create build-implementation-using-contracts Taskfile task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task:
     ```yaml
@@ -217,7 +237,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: Task builds Implementation with NuGet dependency chain
 
-- [ ] T017 Create build-all Taskfile task
+- [X] T017 Create build-all Taskfile task
   - Location: `/Users/adam/scratch/git/minimal-api-gen/Taskfile.yml`
   - Action: Add task:
     ```yaml
@@ -240,24 +260,24 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 ### Phase 3.1: Generator CLI Options
 
-- [ ] T018 [US1] Add USE_NUGET_PACKAGING constant to MinimalApiServerCodegen.java
+- [X] T018 [US1] Add USE_NUGET_PACKAGING constant to MinimalApiServerCodegen.java
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add `public static final String USE_NUGET_PACKAGING = "useNugetPackaging";` near other constants (around line 40-60)
   - Expected: Constant defined for CLI option key
 
-- [ ] T019 [US1] Register useNugetPackaging CLI option in constructor
+- [X] T019 [US1] Register useNugetPackaging CLI option in constructor
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add CliOption in constructor similar to USE_MEDIATR pattern
   - Expected: `cliOptions.add(CliOption.newBoolean(USE_NUGET_PACKAGING, "Generate separate NuGet package project for API contracts"));`
 
-- [ ] T020 [US1] Implement setUseNugetPackaging() setter method
-  - Location: `generator/src/main/java/org/opanapitools/codegen/languages/MinimalApiServerCodegen.java`
+- [X] T020 [US1] Implement setUseNugetPackaging() setter method
+  - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add setter method with boolean parameter
   - Expected: `public void setUseNugetPackaging(boolean useNugetPackaging) { this.useNugetPackaging = useNugetPackaging; }`
 
 ### Phase 3.2: Template Creation
 
-- [ ] T021 [P] [US1] Create nuget-project.csproj.mustache template
+- [X] T021 [P] [US1] Create nuget-project.csproj.mustache template
   - Location: `generator/src/main/resources/aspnet-minimalapi/nuget-project.csproj.mustache`
   - Action: Create new template for Contracts project with:
     - Target framework: net8.0
@@ -266,7 +286,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     - Compile includes: `<Compile Include="../../Generated/**/*.cs" Link="...">` 
   - Expected: New template file created, see contracts/CsprojStructure.md (lines 30-100)
 
-- [ ] T022 [P] [US1] Create implementation-project.csproj.mustache template
+- [X] T022 [P] [US1] Create implementation-project.csproj.mustache template
   - Location: `generator/src/main/resources/aspnet-minimalapi/implementation-project.csproj.mustache`
   - Action: Create new template for Implementation project with:
     - Target framework: net8.0
@@ -274,46 +294,46 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     - User-owned code includes: Handlers/, Models/, Program.cs
   - Expected: New template file created, see contracts/CsprojStructure.md (lines 100-150)
 
-- [ ] T023 [P] [US1] Modify solution.mustache to support multi-project structure
+- [X] T023 [P] [US1] Modify solution.mustache to support multi-project structure
     - Project("{9A19103F...}") = "{{packageName}}.Contracts", "src/{{packageName}}.Contracts/{{packageName}}.Contracts.csproj"
     - Project("{9A19103F...}") = "{{packageName}}", "src/{{packageName}}/{{packageName}}.csproj"
   - Expected: Solution template supports both single-project (default) and dual-project (useNugetPackaging=true) modes
 
 ### Phase 3.3: Generator Logic - Unified Source Generation
 
-- [ ] T024 [US1] Add useNugetPackaging field to MinimalApiServerCodegen.java
+- [X] T024 [US1] Add useNugetPackaging field to MinimalApiServerCodegen.java
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add `private boolean useNugetPackaging = false;` field near other boolean flags
   - Expected: Field declared for tracking packaging mode
 
-- [ ] T025 [US1] Modify processOpts() to read useNugetPackaging from additionalProperties
+- [X] T025 [US1] Modify processOpts() to read useNugetPackaging from additionalProperties
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add in processOpts() method: `if (additionalProperties.containsKey(USE_NUGET_PACKAGING)) { this.useNugetPackaging = convertPropertyToBooleanAndWriteBack(USE_NUGET_PACKAGING); }`
   - Expected: CLI option value read and stored in field
 
-- [ ] T026 [US1] Create generateNugetPackageProject() method
+- [X] T026 [US1] Create generateNugetPackageProject() method
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Create new method that adds nuget-project.csproj.mustache to supportingFiles
   - Expected: Method adds supporting file with correct output path: `src/{{packageName}}.Contracts/{{packageName}}.Contracts.csproj`
 
-- [ ] T027 [US1] Create generateImplementationProject() method
+- [X] T027 [US1] Create generateImplementationProject() method
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Create new method that adds implementation-project.csproj.mustache to supportingFiles
   - Expected: Method adds supporting file with correct output path: `src/{{packageName}}/{{packageName}}.csproj`
 
-- [ ] T028 [US1] Modify addSupportingFiles() to conditionally call generateNugetPackageProject()
+- [X] T028 [US1] Modify addSupportingFiles() to conditionally call generateNugetPackageProject()
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add conditional: `if (useNugetPackaging) { generateNugetPackageProject(); generateImplementationProject(); } else { /* existing project.csproj logic */ }`
   - Expected: Dual-project structure generated when flag enabled, single project otherwise
 
-- [ ] T029 [US1] Update solution.mustache supporting file registration
+- [X] T029 [US1] Update solution.mustache supporting file registration
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Ensure solution.mustache receives useNugetPackaging flag in template context
   - Expected: Template can render conditional project entries
 
 ### Phase 3.4: Extension Method Generation
 
-- [ ] T030 [P] [US1] Create endpointExtensions.mustache template
+- [X] T030 [P] [US1] Create endpointExtensions.mustache template
   - Location: `generator/src/main/resources/aspnet-minimalapi/endpointExtensions.mustache`
   - Action: Create template for AddApiEndpoints() extension method:
     - Namespace: {{packageName}}.Contracts.Extensions
@@ -325,7 +345,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     - Generation rule: ALWAYS generated when useNugetPackaging=true
   - Expected: New template file, see contracts/ExtensionMethods.md (lines 30-80)
 
-- [ ] T031 [P] [US1] Create validatorExtensions.mustache template
+- [X] T031 [P] [US1] Create validatorExtensions.mustache template
   - Location: `generator/src/main/resources/aspnet-minimalapi/validatorExtensions.mustache`
   - Action: Create template for AddApiValidators() extension method:
     - Namespace: {{packageName}}.Contracts.Extensions
@@ -335,24 +355,154 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     - Generation rule: ONLY generated when useValidators=true (no validators = no extension method)
   - Expected: New template file, see contracts/ExtensionMethods.md (lines 80-120)
 
-- [ ] T032 [US1] Add endpointExtensions.mustache to supportingFiles in generateNugetPackageProject()
+- [X] T032 [US1] Add endpointExtensions.mustache to supportingFiles in generateNugetPackageProject()
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add `supportingFiles.add(new SupportingFile("endpointExtensions.mustache", srcPath + "/Extensions", "EndpointExtensions.cs"));`
   - Expected: Extension method file generated in Contracts project
 
-- [ ] T033 [US1] Add validatorExtensions.mustache to supportingFiles conditionally
+- [X] T033 [US1] Add validatorExtensions.mustache to supportingFiles conditionally
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Add conditional: `if (useValidators) { supportingFiles.add(new SupportingFile("validatorExtensions.mustache", ...)); }`
   - Expected: Validator extension only generated when validators enabled
 
-### Phase 3.5: Modify Existing Templates for Unified Generation
+### Phase 3.5: Contract-First CQRS Architecture (Commands/Queries/DTOs)
 
-- [ ] T034 [US1] Modify endpointMapper.mustache to expose public MapXEndpoints methods
+**Goal**: Implement FR-027 (Commands ARE requests, return DTOs), FR-028 (DTO enum JsonConverter), FR-029 (Handler mapping scaffolds)
+
+- [X] T034 [P] [US1] Update command.mustache to generate Commands as request data structures
+  - Location: `generator/src/main/resources/aspnet-minimalapi/command.mustache`
+  - Action: Modify template to:
+    - Generate Command properties directly from operation parameters (default case)
+    - For simple parameters: properties directly on Command (e.g., `string Name`, `StatusEnum Status`)
+    - For complex nested request bodies: MAY use Request DTO property (e.g., `AddPetRequestDto pet`) when OpenAPI schema warrants separate type
+    - Use DTO type for IRequest<TResponse> (not Model/Domain Entity type)
+    - Example (simple): `public record AddPetCommand : IRequest<PetDto> { public string Name { get; init; } public StatusEnum? Status { get; init; } }`
+    - Example (complex): `public record AddPetCommand : IRequest<PetDto> { public AddPetRequestDto Pet { get; init; } }`
+  - Expected: Commands ARE the request data structure with DTO response type; structure adapts to OpenAPI schema complexity
+  - Rationale: FR-027 - Ensures Contract package has zero dependencies on Implementation (no Model references)
+
+- [X] T035 [P] [US1] Update query.mustache to generate Queries as request data structures
+  - Location: `generator/src/main/resources/aspnet-minimalapi/query.mustache`
+  - Action: Modify template to:
+    - Generate Query properties directly from operation parameters (not nested DTO)
+    - Use DTO type for IRequest<TResponse> (not Model type)
+    - Example: `public record GetPetByIdQuery : IRequest<PetDto> { public long PetId { get; init; } }`
+  - Expected: Queries ARE the request data structure with DTO response type
+  - Rationale: FR-027 - Maintains Contract-First architecture separation
+
+- [X] T036 [P] [US1] Add response DTO type resolution logic to MinimalApiServerCodegen.java
+  - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
+  - Note: Execute BEFORE T034/T035 as templates will use this helper method
+  - Action: Create method `String getResponseDtoType(CodegenOperation operation)`:
+    - Check operation.responses['200'].schema → map to DTO name (e.g., "Pet" schema → "PetDto")
+    - Handle missing schemas: return "Unit" for 204 No Content
+    - Handle resource creation (201): return "{ResourceName}Dto"
+  - Expected: Commands/Queries can determine correct DTO response type from OpenAPI spec
+  - Note: May need to extend CodegenOperation with responseDtoType property
+
+- [X] T037 [P] [US1] Update model.mustache (DTO generation) to add JsonConverter for enum properties
+  - Location: `generator/src/main/resources/aspnet-minimalapi/model.mustache`
+  - Action: Modify template to:
+    - Add `[JsonConverter(typeof(EnumMemberJsonConverter<{{{datatypeWithEnum}}}>))]` attribute to enum properties
+    - Use existing EnumMemberJsonConverter<T> implementation (already in codebase)
+    - Example: `[JsonConverter(typeof(EnumMemberJsonConverter<StatusEnum>))] public StatusEnum? Status { get; init; }`
+  - Expected: DTOs have enum types (not strings) with proper serialization attributes
+  - Rationale: FR-028 - Enable strict type serialization at API boundary
+
+- [X] T038 [US1] Verify EnumMemberJsonConverter<T> supports JsonPropertyName attributes
+  - Location: `test-output/Contract/Converters/EnumMemberJsonConverter.cs` (generated file for inspection)
+  - Action: Review existing converter implementation (lines 11-46 from codebase)
+  - Expected: Converter already handles `[EnumMember(Value="available")]` and `[JsonPropertyName("available")]` patterns
+  - Note: No code changes needed - converter is already sophisticated enough (per conversation history)
+
+- [X] T037a [US1] Add unit test to verify DTOs have JsonConverter attributes on enum properties
+  - Location: `generator-tests/GeneratedDtoTests.cs`
+  - Action: Create test method VerifyDtosHaveJsonConverterOnEnumProperties():
+    - Load generated PetDto.cs file
+    - Parse C# code to find enum properties
+    - Assert each enum property has [JsonConverter(typeof(EnumMemberJsonConverter<T>))] attribute
+  - Expected: Test passes when all enum properties have converter attributes
+  - Validation: Covers FR-028 compliance
+
+- [X] T039 [P] [US1] Update handler.mustache to add scaffolded mapping methods
+  - Location: `generator/src/main/resources/aspnet-minimalapi/handler.mustache`
+  - Action: Modify template to generate partial class with mapping scaffolds:
+    ```csharp
+    public partial class AddPetCommandHandler : IRequestHandler<AddPetCommand, PetDto>
+    {
+        public async Task<PetDto> Handle(AddPetCommand command, CancellationToken cancellationToken)
+        {
+            // TODO: Customize business logic
+            var domainEntity = MapCommandToDomain(command);
+            // TODO: Call service/repository to persist domainEntity
+            var result = await _repository.AddAsync(domainEntity, cancellationToken);
+            return MapDomainToDto(result);
+        }
+
+        private Pet MapCommandToDomain(AddPetCommand command)
+        {
+            // TODO: Customize mapping logic
+            return new Pet { Name = command.Name, Status = MapEnumToDomain(command.Status) };
+        }
+
+        private PetDto MapDomainToDto(Pet entity)
+        {
+            // TODO: Customize mapping logic
+            return new PetDto { Id = entity.Id, Name = entity.Name, Status = MapEnumToDto(entity.Status) };
+        }
+
+        private Pet.StatusEnum? MapEnumToDomain(StatusEnum? dtoEnum)
+        {
+            // TODO: Customize enum mapping if needed
+            return dtoEnum.HasValue ? (Pet.StatusEnum)dtoEnum.Value : null;
+        }
+
+        private StatusEnum? MapEnumToDto(Pet.StatusEnum? domainEnum)
+        {
+            // TODO: Customize enum mapping if needed
+            return domainEnum.HasValue ? (StatusEnum)domainEnum.Value : null;
+        }
+    }
+    ```
+  - Expected: Handlers generated as partial classes with scaffolded mapping methods (TODO comments)
+  - Rationale: FR-029 - Provide clear guidance for developer customization
+  - Note: Depends on T031/T032 (partial keyword) - this task adds mapping method generation to existing partial class structure
+
+- [X] T040 [US1] Add partial keyword support to handler generation logic
+  - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
+  - Action: Ensure handler generation includes "partial" modifier in class declaration
+  - Expected: Handlers can be extended by developers in separate files without regeneration conflicts
+  - Note: This provides the class structure that T039 adds mapping methods to
+
+- [X] T040a [US1] Add unit test to verify Handlers have scaffolded mapping methods
+  - Location: `generator-tests/GeneratedHandlerTests.cs`
+  - Action: Create test method VerifyHandlersHaveScaffoldedMappingMethods():
+    - Load generated AddPetCommandHandler.cs file
+    - Parse C# code to find method signatures
+    - Assert methods exist: MapCommandToDomain, MapDomainToDto, MapEnumToDomain, MapEnumToDto
+    - Assert methods are private
+    - Assert methods contain TODO comments
+  - Expected: Test passes when all mapping methods exist with correct signatures
+  - Validation: Covers FR-029 compliance
+
+### Phase 3.6: Modify Existing Templates for Unified Generation
+
+**NOTE - Task Numbering Strategy**: Tasks T034-T040a are NEW insertions for Contract-First CQRS architecture (FR-027, FR-028, FR-029). Tasks T042 onwards preserve their ORIGINAL IDs from the pre-architecture-update plan to maintain review history and task tracking continuity.
+
+**Task ID Mapping**:
+- T001-T033: Original sequence (completed/in-progress)
+- T034-T040a: NEW - Contract-First CQRS architecture tasks (7 tasks)
+- T042-T136: Original sequence continues (old T035 became T042, etc.)
+- **Total**: 143 tasks (136 original + 7 new insertions)
+
+**Rationale**: Preserving original IDs avoids cascade updates across documentation, git history, and in-progress work. New tasks inserted at logical point (after T033 template creation, before T042 file routing).
+
+- [ ] T041 [US1] Modify endpointMapper.mustache to expose public MapXEndpoints methods
   - Location: `generator/src/main/resources/aspnet-minimalapi/endpointMapper.mustache`
   - Action: Change endpoint mapping methods from `internal static` to `public static`
   - Expected: Methods can be called from extension method in Contracts project
 
-- [ ] T035 [US1] Modify file output paths to use Generated/ directory
+- [X] T042 [US1] Modify file output paths to use Contract/ directory for Commands/Queries/DTOs
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Override methods to change output paths when useNugetPackaging=true
   - Expected: Generator creates PHYSICAL directory structure at solution root:
@@ -361,7 +511,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
   - Rationale (from research.md RQ-005): Clear ownership boundary (Generated/ = throw away, src/ = user-owned)
   - Note: MSBuild will compile files from Generated/ via <Compile Include> in both .csproj files
 
-- [ ] T036 [US1] Override modelFileFolder() to return "Generated/Models"
+- [X] T036 [US1] Override modelFileFolder() to return "Generated/Models"
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Override modelFileFolder() method:
     ```java
@@ -375,7 +525,7 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
     ```
   - Expected: DTOs generated to test-output/Generated/Models/Pet.cs (instead of test-output/src/PetstoreApi/Models/Pet.cs)
 
-- [ ] T136 [US1] Override apiFileFolder() to return "Generated/Endpoints"
+- [X] T136 [US1] Override apiFileFolder() to return "Generated/Endpoints"
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
   - Action: Override apiFileFolder() method:
     ```java
@@ -400,32 +550,32 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 ### Phase 3.6: Testing
 
-- [ ] T038 [US1] Build generator with NuGet packaging support
+- [X] T038 [US1] Build generator with NuGet packaging support
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox run task build-generator`
   - Expected: BUILD SUCCESS, no compilation errors
 
-- [ ] T039 [US1] Generate test-output with useNugetPackaging=true
+- [X] T039 [US1] Generate test-output with useNugetPackaging=true
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="useNugetPackaging=true,packageId=PetstoreApi.Contracts,packageVersion=1.0.0"`
   - Expected: Generation succeeds, dual-project structure created
 
-- [ ] T040 [US1] Verify Generated/ directory structure exists
+- [X] T040 [US1] Verify Generated/ directory structure exists
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/Generated/`
   - Action: Check for Models/, Endpoints/, Commands/, Queries/ subdirectories
   - Expected: All subdirectories exist with generated files
 
-- [ ] T041 [US1] Verify nuget-project.csproj created
+- [X] T041 [US1] Verify nuget-project.csproj created
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/src/PetstoreApi.Contracts/PetstoreApi.Contracts.csproj`
   - Action: Check file exists and contains <Compile Include> references to Generated/
   - Expected: File exists with correct MSBuild structure
 
-- [ ] T042 [US1] Verify implementation-project.csproj created
+- [X] T042 [US1] Verify implementation-project.csproj created
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/src/PetstoreApi/PetstoreApi.csproj`
   - Action: Check file exists and contains ProjectReference to Contracts project
   - Expected: File exists with ProjectReference
 
-- [ ] T043 [US1] Verify solution file includes both projects
+- [X] T043 [US1] Verify solution file includes both projects
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/PetstoreApi.sln`
   - Action: Check solution contains two Project(...) entries
   - Expected: Solution references both Contracts and Implementation projects
