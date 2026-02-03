@@ -136,34 +136,69 @@ tasks:
   # TEST - Unit & Integration Testing
   # ==============================================================================
 
-  test:unit:
-    desc: Run xUnit tests (assumes code already generated)
+  test:generator:
+    desc: Run generator unit tests (validates mustache templates directly - no code generation required)
+    cmds:
+      - |
+        if ls generator-tests/*.csproj 1> /dev/null 2>&1; then
+          echo "Running generator unit tests (template validation)..."
+          dotnet test generator-tests/ --verbosity normal
+        else
+          echo "⚠️  Generator tests not yet implemented"
+          echo "   Directory: generator-tests/ exists but no .csproj found"
+          echo "   To set up: cd generator-tests && dotnet new xunit --name GeneratorTests"
+        fi
+
+  test:petstore-unit:
+    desc: Run xUnit tests for generated petstore API (assumes code already generated)
     deps:
       - gen:copy-test-stubs
     cmds:
-      - echo "Running unit tests..."
+      - echo "Running petstore unit tests..."
       - dotnet test {{.TEST_PROJECT}} --verbosity normal
 
-  test:integration:
-    desc: Full API lifecycle test (start → wait → Bruno tests → stop)
+  test:petstore-integration:
+    desc: Full petstore API lifecycle test (start → wait → Bruno tests → stop)
     vars:
       SUITE: '{{.SUITE | default ""}}'
+    deps:
+      - gen:copy-test-stubs
     cmds:
       - task: api:start
       - defer: { task: api:stop }
       - task: api:wait
       - task: bruno:run{{if .SUITE}}-{{.SUITE}}{{end}}
 
-  test:integration-single:
-    desc: Run specific Bruno test(s) with full lifecycle (usage - task test:integration-single TEST='pet/add-pet.bru')
+  test:petstore-integration-single:
+    desc: Run specific petstore Bruno test(s) with full lifecycle (usage - task test:petstore-integration-single TEST='pet/add-pet.bru')
     vars:
       TEST: '{{.TEST | default "pet/Add a new pet to the store.bru"}}'
+    deps:
+      - gen:copy-test-stubs
     cmds:
       - task: api:start
       - defer: { task: api:stop }
       - task: api:wait
       - task: bruno:run-single
         vars: {TEST: '{{.TEST}}'}
+
+  # ==============================================================================
+  # Regression Tests - Full tests including generation with different options
+  # ==============================================================================
+
+
+  regress:full-petstore-validators-problemdetails:
+    desc: "Full petstore regression (build + generate + test)"
+    cmds:
+      - task: clean:all
+      - task: build-generator
+      - task: gen:petstore 
+        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true"}
+      - task: test:petstore-unit
+      - task: test:petstore-integration
+      - task: test:generator
+ 
+
 
   # ==============================================================================
   # API - Manage Test API Server
@@ -353,14 +388,14 @@ tasks:
       - task: gen:copy-test-stubs
 
   quick-test:
-    desc: "[DEPRECATED] Use test:unit"
+    desc: "[DEPRECATED] Use test:petstore-unit"
     cmds:
-      - task: test:unit
+      - task: test:petstore-unit
 
   test-ci:
-    desc: "[DEPRECATED] Use test:integration"
+    desc: "[DEPRECATED] Use test:petstore-integration"
     cmds:
-      - task: test:integration
+      - task: test:petstore-integration
 
   run-petstore-api:
     desc: "[DEPRECATED] Use api:run"
@@ -371,3 +406,4 @@ tasks:
     desc: "[DEPRECATED] Use clean:generated"
     cmds:
       - task: clean:generated
+

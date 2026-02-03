@@ -33,46 +33,115 @@ tests/
 4. **Use absolute paths**: Always `cd` to project root first: `cd /Users/adam/scratch/git/minimal-api-gen`
 
 ### Available Task Commands
+
+**Task Organization**: All tasks use consistent namespacing with `:` separator:
+- `generator:*` - Build custom OpenAPI generator
+- `gen:*` - Generate code from OpenAPI spec
+- `build:*` - Compile generated code
+- `test:*` - Unit & integration testing
+- `api:*` - Manage test API server
+- `bruno:*` - API test suites
+- `docker:*` - Container management
+- `clean:*` - Cleanup tasks
+
 ```bash
-# See all available tasks
+# See all available tasks (organized by namespace)
 devbox run task --list
 
-# Generator Build - must be done before generating code
-devbox run task build-generator                    # Build the generator JAR
+# ============================================================================
+# COMMON WORKFLOWS (RECOMMENDED)
+# ============================================================================
 
-# Generates 
-devbox run task generate-petstore-minimal-api      # Generate code with default config
+# DEFAULT: Test generated petstore with xUnit tests
+devbox run task clean:generated gen:petstore test:unit
 
-    # Generate with custom configuration
-    devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true"
-    devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true"
+# DEFAULT: Test generated petstore with Bruno integration tests
+devbox run task clean:generated gen:petstore test:integration
 
+# REBUILD GENERATOR: When you modify generator templates or Java code
+devbox run task clean:all generator:build
 
-devbox run task copy-test-stubs # Copy test handler stubs into generated code for testing - this is needed for quicktest 
+# CUSTOM GENERATION: Generate with specific additional properties
+devbox run task clean:generated gen:petstore ADDITIONAL_PROPS="packageName=MyApi,useMediatr=true,useValidators=true"
 
-devbox run task quick-test                     # Quick test run (assumes code already generated) - xUnit tests run from source location
+# ============================================================================
+# GENERATOR TASKS (generator:*)
+# ============================================================================
 
-devbox run task test-ci                          # Full test cycle: Start API -> Wait -> Run Bruno tests -> Stop API
+devbox run task generator:build                # Build the custom OpenAPI generator JAR
+devbox run task generator:download-cli         # Download OpenAPI Generator CLI from Maven
 
-# Building Nuget Package Solution Generated Code ONLY USE FOR BUILDING NUGET Package - the build step is not required for non-NuGet scenarios
-devbox run task build-all                          # Build entire solution (both projects)
-devbox run task build-contracts                    # Build the Contracts project only
-devbox run task build-implementation-using-contracts  # Build Implementation using NuGet package
+# ============================================================================
+# CODE GENERATION TASKS (gen:*)
+# ============================================================================
 
-# Bruno Tests
-devbox run task bruno:run-all-suites              # Run both main + validation suites (19 tests)
-devbox run task bruno:run-main-suite              # Run main pet test suite (6 tests)
-devbox run task bruno:run-validation-suite        # Run validation test suite (13 tests)
-devbox run task single-bruno-test TEST='pet/add-pet.bru'  # Run specific Bruno test(s) usually not needed but  required for certain investigations
+devbox run task gen:petstore                   # Generate server code (default: MediatR + validators enabled)
+devbox run task gen:petstore ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true"  # Custom config
+devbox run task gen:copy-test-stubs            # Copy test handler stubs into generated code
 
-# Cleanup
-devbox run task clean-all                          # Clean all generated code and build artifacts
-devbox run task clean-generated-api                # Clean only generated Minimal API code, this should be us
+# ============================================================================
+# BUILD TASKS (build:*)
+# ============================================================================
 
-# API Server
-devbox run task run-petstore-api                   # Launch the generated   
-                      
+# ONLY USE FOR NUGET PACKAGING - build step NOT required for testing
+devbox run task build:all                      # Build entire solution (both projects)
+devbox run task build:contracts-nuget          # Build Contracts project only (NuGet workflow)
+devbox run task build:impl-nuget               # Build Implementation using NuGet Contracts
 
+# ============================================================================
+# TEST TASKS (test:*)
+# ============================================================================
+
+devbox run task test:unit                      # Run xUnit tests (45 tests)
+devbox run task test:integration               # Full lifecycle: start API → Bruno tests → stop
+devbox run task test:integration SUITE="main-suite"        # Run specific Bruno suite
+devbox run task test:integration-single TEST='pet/add-pet.bru'  # Run single Bruno test
+
+# ============================================================================
+# API SERVER TASKS (api:*)
+# ============================================================================
+
+devbox run task api:run                        # Launch API in foreground (for manual testing)
+devbox run task api:start                      # Start API in background (saves PID)
+devbox run task api:wait                       # Wait until API is healthy
+devbox run task api:stop                       # Stop background API
+
+# ============================================================================
+# BRUNO TEST TASKS (bruno:*)
+# ============================================================================
+
+devbox run task bruno:run                      # Run all Bruno tests
+devbox run task bruno:run-main-suite           # Run main pet tests (6 tests - CRUD)
+devbox run task bruno:run-validation-suite     # Run validation tests (13 tests)
+devbox run task bruno:run-all-suites           # Run both suites (19 tests)
+devbox run task bruno:run-single TEST='pet/add-pet.bru'  # Run specific test file
+
+# ============================================================================
+# DOCKER TASKS (docker:*)
+# ============================================================================
+
+devbox run task docker:build                   # Build Docker image with custom generator
+devbox run task docker:push                    # Push image to registry
+devbox run task docker:test                    # Test Docker image by generating code
+
+# ============================================================================
+# CLEANUP TASKS (clean:*)
+# ============================================================================
+
+devbox run task clean:generated                # Clean only generated code (keeps generator JAR)
+devbox run task clean:all                      # Clean all code + generator artifacts
+
+# ============================================================================
+# LEGACY ALIASES (DEPRECATED - use namespaced versions above)
+# ============================================================================
+
+devbox run task build-generator                # [DEPRECATED] Use generator:build
+devbox run task generate-petstore-minimal-api  # [DEPRECATED] Use gen:petstore
+devbox run task copy-test-stubs                # [DEPRECATED] Use gen:copy-test-stubs
+devbox run task quick-test                     # [DEPRECATED] Use test:unit
+devbox run task test-ci                        # [DEPRECATED] Use test:integration
+devbox run task run-petstore-api               # [DEPRECATED] Use api:run
+devbox run task clean-generated-api            # [DEPRECATED] Use clean:generated
 ```
 
 ### Why This Matters
@@ -81,38 +150,43 @@ devbox run task run-petstore-api                   # Launch the generated
 - Task runner (go-task) coordinates multi-step workflows from Taskfile.yml
 - Direct command execution will ALWAYS fail outside devbox
 
-### Running the Custom OpenAPI Generator
+### Typical Development Workflows
 
-**CORRECT**: Use task commands (recommended)
+**Testing Generated Petstore API** (default workflow):
 ```bash
 cd /Users/adam/scratch/git/minimal-api-gen
-devbox run task build-generator
-devbox run task generate-petstore-minimal-api ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true"
+
+# Unit tests (xUnit - 45 tests)
+devbox run task clean:generated gen:petstore test:unit
+
+# Integration tests (Bruno - 27 tests, 77 assertions)
+devbox run task clean:generated gen:petstore test:integration
 ```
 
-**INCORRECT** ❌: Never do these
+**Rebuilding the Generator** (after template/Java changes):
 ```bash
-task build-generator                          # ❌ task not in PATH
+cd /Users/adam/scratch/git/minimal-api-gen
+devbox run task clean:all generator:build
+```
+
+**Custom Code Generation**:
+```bash
+cd /Users/adam/scratch/git/minimal-api-gen
+devbox run task gen:petstore ADDITIONAL_PROPS="packageName=MyApi,useMediatr=true,useValidators=true"
+```
+
+**INCORRECT** ❌: Never run commands directly
+```bash
+task generator:build                         # ❌ task not in PATH
 mvn clean package                            # ❌ mvn not in PATH  
-cd generator && ./run-generator.sh           # ❌ Deprecated script
-dotnet build test-output/                   # ❌ dotnet not in PATH
-dotnet test test-output/                     # ❌ Use task test-server-stubs instead
-dotnet pack test-output/                     # ❌ Use task build-contracts instead
+dotnet test test-output/                     # ❌ dotnet not in PATH
+./run-generator.sh                           # ❌ Deprecated script
 ```
 
-**Output**: Generated code appears in `test-output/` directory
-
-**Building Generated Code**: Always use task commands
-```bash
-# Build both projects (Contracts + Implementation)
-devbox run task build-all
-
-# Build only the Contracts project (for NuGet packaging)
-devbox run task build-contracts
-
-# Build Implementation using packaged Contracts
-devbox run task build-implementation-using-contracts
-```
+**Output Locations**:
+- Generated code: `test-output/`
+- Generator JAR: `generator/target/aspnet-minimalapi-openapi-generator-1.0.0.jar`
+- Test results: Console output + test-output/tests/PetstoreApi.Tests/bin/
 ## Code Style
 
 Java (OpenAPI Generator codebase) - version detection needed from repository: Follow standard conventions
