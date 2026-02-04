@@ -9,6 +9,22 @@ using {{packageName}}.Converters;
 
 namespace {{packageName}}.DTOs;
 
+{{#isEnum}}
+    /// <summary>
+    /// Gets or Sets {{classname}}
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof({{packageName}}.Converters.EnumMemberJsonConverter<{{classname}}>))]
+    public enum {{classname}}
+    {
+        {{#allowableValues}}{{#enumVars}}
+        /// <summary>
+        /// Enum {{name}} for {{{value}}}
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("{{{value}}}")]
+        {{name}}{{^isString}} = {{{value}}}{{/isString}}{{#isString}}{{^vendorExtensions.x-zero-based-enum}} = {{-index}}{{/vendorExtensions.x-zero-based-enum}}{{/isString}}{{^-last}},
+        {{/-last}}{{/enumVars}}{{/allowableValues}}
+    }
+{{/isEnum}}{{^isEnum}}
 /// <summary>
 /// DTO for {{operationId}} operation
 /// {{#description}}
@@ -53,3 +69,4 @@ public record {{classname}}
 
 {{/vars}}
 }
+{{/isEnum}}

@@ -2,7 +2,6 @@
 #pragma warning disable ASP0020 // Complex types as query parameters
 {{#useValidators}}using FluentValidation;
 {{/useValidators}}using Microsoft.AspNetCore.Mvc;
-using {{{packageName}}}.Models;
 {{#useMediatr}}
 using MediatR;
 using {{{packageName}}}.Commands;
@@ -147,7 +146,7 @@ public static class {{{classname}}}Endpoints
         .WithSummary("{{{summary}}}")
         {{/summary}}
         {{#returnType}}
-        .Produces<{{{returnType}}}>(200)
+        .Produces<{{{vendorExtensions.dtoResponseType}}}>(200)
         {{/returnType}}
         .ProducesProblem(400);
 

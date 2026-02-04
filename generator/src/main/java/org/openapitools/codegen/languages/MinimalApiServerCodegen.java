@@ -224,6 +224,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Implementation .csproj file (references Contracts project)
         supportingFiles.add(new SupportingFile("implementation-project.csproj.mustache", 
             packageFolder, packageName + ".csproj"));
+        
+        // Extension method for handler registration
+        supportingFiles.add(new SupportingFile("handlerExtensions.mustache", 
+            packageFolder + File.separator + "Extensions", "HandlerExtensions.cs"));
     }
 
     @Override
@@ -471,8 +475,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 }
                 // FR-027: Convert Model types to DTO types for query/path parameters (Contract-First CQRS)
                 // Don't convert array/collection types (they contain primitive or already-converted types)
-                // Don't convert enum types - ASP.NET Core Minimal APIs can parse enums from strings natively
-                if ((param.isQueryParam || param.isPathParam) && param.isModel && !param.isContainer) {
+                // NOTE: Enums MUST be converted to DTO types because they're in the Contract package
+                if ((param.isQueryParam || param.isPathParam) && (param.isModel || param.isEnum) && !param.isContainer) {
                     String originalType = param.dataType;
                     param.dataType = originalType + "Dto";
                     LOGGER.info("Converted parameter '{}' type from {} to {} for Contract-First CQRS", 
@@ -490,8 +494,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 }
                 // FR-027: Convert Model types to DTO types for query parameters (Contract-First CQRS)
                 // Don't convert array/collection types (they contain primitive or already-converted types)
-                // Don't convert enum types - ASP.NET Core Minimal APIs can parse enums from strings natively
-                if (param.isModel && !param.isContainer) {
+                // NOTE: Enums MUST be converted to DTO types because they're in the Contract package
+                if ((param.isModel || param.isEnum) && !param.isContainer) {
                     String originalType = param.dataType;
                     param.dataType = originalType + "Dto";
                     LOGGER.info("Converted query parameter '{}' type from {} to {} for Contract-First CQRS", 
@@ -836,6 +840,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 dtoData.put("packageName", packageName);
                 dtoData.put("classname", dtoName);
                 dtoData.put("description", model.getDescription());
+                dtoData.put("isEnum", model.isEnum);
+                dtoData.put("allowableValues", model.allowableValues);
+                dtoData.put("isString", model.isString);
                 
                 // Clone and convert model properties for DTO
                 List<CodegenProperty> dtoVars = new ArrayList<>();
