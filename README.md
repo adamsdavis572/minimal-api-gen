@@ -5,13 +5,16 @@ A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs 
 ## Features
 
 - **ASP.NET Core Minimal APIs**: Generates lightweight, performant endpoint definitions
+- **True CQRS with DTOs**: Separate Data Transfer Objects from domain Models for clean API boundaries
 - **MediatR Integration**: Optional CQRS pattern with Commands, Queries, and Handlers
+- **Comprehensive Validation**: FluentValidation with full OpenAPI constraint support (7 constraint types)
+- **Production Error Handling**: Global exception handler with RFC 7807 ProblemDetails or simple JSON
 - **Proper HTTP Semantics**: 
   - POST returns 201 Created with Location header
   - DELETE returns 204 NoContent (success) or 404 NotFound
   - GET/PUT return 404 for missing resources
-- **Type-Safe Models**: Uses C# records for immutable DTOs
-- **FluentValidation**: Request validation infrastructure
+  - Validation errors return 400 BadRequest
+- **Type-Safe Models**: Uses C# records for immutable DTOs and Models
 - **Swagger/OpenAPI**: Automatic API documentation
 - **Test Infrastructure**: Complete test suite with WebApplicationFactory
 
@@ -130,6 +133,8 @@ devbox run task gen:petstore ADDITIONAL_PROPS="packageName=MyCompany.ShopApi"
 - `useMediatr` - Enable MediatR/CQRS pattern (default: false)
 - `useNugetPackaging` - Generate separate Contracts NuGet package (default: false)
 - `useValidators` - Add FluentValidation validators (default: false)
+- `useProblemDetails=true|false` - Use RFC 7807 format for errors (default: false)
+- `useGlobalExceptionHandler=true|false` - Enable exception handling middleware (default: true)
 - `useRecords` - Use C# records for DTOs (default: false)
 - `packageName` - Root namespace (default: Org.OpenAPITools)
 - `packageVersion` - NuGet package version (default: OAS version or 1.0.0)
