@@ -510,10 +510,11 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 **Rationale**: Preserving original IDs avoids cascade updates across documentation, git history, and in-progress work. New tasks inserted at logical point (after T033 template creation, before T042 file routing).
 
-- [ ] T041 [US1] Modify endpointMapper.mustache to expose public MapXEndpoints methods
+- [X] T041 [US1] Modify endpointMapper.mustache to expose public MapXEndpoints methods
   - Location: `generator/src/main/resources/aspnet-minimalapi/endpointMapper.mustache`
   - Action: Change endpoint mapping methods from `internal static` to `public static`
   - Expected: Methods can be called from extension method in Contracts project
+  - Result: ✅ ALREADY COMPLETE - Generated endpoint files (e.g., PetApiEndpoints.cs line 19) already have `public static RouteGroupBuilder MapPetApiEndpoints()` - methods are public and successfully called by EndpointExtensions.AddApiEndpoints()
 
 - [X] T042 [US1] Modify file output paths to use Contract/ directory for Commands/Queries/DTOs
   - Location: `generator/src/main/java/org/openapitools/codegen/languages/MinimalApiServerCodegen.java`
@@ -553,13 +554,14 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
   - Expected: Endpoints generated to test-output/Generated/Endpoints/PetEndpoints.cs
   - Note: Commands/Queries will need similar overrides (not yet in OpenAPI Generator base class)
 
-- [ ] T037 [US1] Update README.mustache with dual-project workflow documentation
+- [X] T037 [US1] Update README.mustache with dual-project workflow documentation
   - Location: `generator/src/main/resources/aspnet-minimalapi/readme.mustache`
   - Action: Add conditional section for NuGet packaging workflow:
     - How to build Contracts project
     - How to pack NuGet package
     - How to reference from Implementation project
   - Expected: README includes quickstart-style instructions
+  - Result: ✅ Added comprehensive NuGet packaging section with project structure, build commands, consumption guide, service registration examples, handler implementation template, and SemVer versioning guidelines (conditional on {{#useNugetPackaging}})
 
 ### Phase 3.6: Testing
 
@@ -672,64 +674,82 @@ Enable OpenAPI Generator to produce NuGet packages containing API contracts (End
 
 ### Phase 4.2: Program.cs Template Enhancement
 
-- [ ] T053 [US2] Modify program.mustache to demonstrate extension method usage
+- [X] T053 [US2] Modify program.mustache to demonstrate extension method usage
   - Location: `generator/src/main/resources/aspnet-minimalapi/program.mustache`
   - Action: Add commented examples:
     - `// builder.Services.AddApiValidators(); // Register validators from Contracts package`
     - `// builder.Services.AddApiHandlers(); // Register handlers from this assembly`
     - `// app.AddApiEndpoints(); // Register all API endpoints`
   - Expected: Generated Program.cs includes integration guidance
+  - Result: ✅ Template has conditional extension method calls using {{#useNugetPackaging}} blocks
 
-- [ ] T054 [US2] Add using statement for Contracts.Extensions namespace
+- [X] T054 [US2] Add using statement for Contracts.Extensions namespace
   - Location: `generator/src/main/resources/aspnet-minimalapi/program.mustache`
   - Action: Add `using {{packageName}}.Contracts.Extensions;` when useNugetPackaging=true
   - Expected: Extension methods are in scope
+  - Result: ✅ Template has conditional using statement at lines 2-3 (verified in generated Program.cs)
 
 ### Phase 4.3: Assembly Scanning Documentation
 
-- [ ] T055 [US2] Document MediatR assembly scanning in README.mustache
+- [X] T055 [US2] Document MediatR assembly scanning in README.mustache
   - Location: `generator/src/main/resources/aspnet-minimalapi/readme.mustache`
   - Action: Add section explaining:
     - Why validators need special registration (different assembly)
     - How MediatR finds handlers in same assembly as Program.cs
     - When to use extension methods vs manual registration
   - Expected: README explains assembly separation rationale
+  - Result: ✅ Added comprehensive "Assembly Scanning & Service Registration" section with:
+    - Extension method rationale (validators in Contracts.dll, handlers in host assembly)
+    - Detailed explanation of AddApiValidators(), AddApiHandlers(), AddApiEndpoints()
+    - Manual registration alternative for developers who prefer explicit control
 
-- [ ] T056 [US2] Create example handler implementation in README
+- [X] T056 [US2] Create example handler implementation in README
   - Location: `generator/src/main/resources/aspnet-minimalapi/readme.mustache`
   - Action: Add code example showing IRequestHandler implementation
   - Expected: Developers understand how to implement handlers
+  - Result: ✅ Added complete "Handler Implementation Guide" with:
+    - Full AddPetCommandHandler example with dependency injection
+    - Command → Domain Entity → DTO mapping pattern
+    - Enum mapping helper methods with switch expressions
+    - CancellationToken usage guidance
+    - Key architectural points documented
 
 ### Phase 4.4: Testing with Bruno Suite
 
-- [ ] T057 [US2] Build Implementation project with extension methods
+- [X] T057 [US2] Build Implementation project with extension methods
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox run dotnet build test-output/src/PetstoreApi/`
   - Expected: Build succeeds with new extension methods
+  - Result: ✅ BUILD SUCCESS - Program.cs generated with extension method calls
 
-- [ ] T058 [US2] Update Program.cs to call extension methods
+- [X] T058 [US2] Update Program.cs to call extension methods
   - Location: `/Users/adam/scratch/git/minimal-api-gen/test-output/src/PetstoreApi/Program.cs`
   - Action: Manually add calls to AddApiValidators(), AddApiHandlers(), AddApiEndpoints()
   - Expected: Program.cs configured for DI
+  - Result: ✅ Template-generated Program.cs has all three extension method calls (lines 26, 29, 131)
 
-- [ ] T059 [US2] Run Implementation project
+- [X] T059 [US2] Run Implementation project
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
   - Command: `devbox run dotnet run --project test-output/src/PetstoreApi/`
   - Expected: Application starts, listening on http://localhost:5000
+  - Result: ✅ API starts successfully, health check passes on port 5198
 
-- [ ] T060 [US2] Run Bruno test suite against running API
+- [X] T060 [US2] Run Bruno test suite against running API
   - Location: `/Users/adam/scratch/git/minimal-api-gen/`
-  - Command: `devbox run task bruno:start-run-all-stop`
+  - Command: `devbox run task test:petstore-integration`
   - Expected: 19/19 tests pass (endpoints functional via NuGet-packaged contracts)
   - Note: Uses existing Taskfile task that handles API start, wait, run tests, and stop lifecycle
+  - Result: ✅ ALL TESTS PASS - Fixed endpointExtensions.mustache to use {{serverBasePath}} for /v2 prefix
 
-- [ ] T061 [US2] Verify validators are invoked for invalid requests
+- [X] T061 [US2] Verify validators are invoked for invalid requests
   - Action: Send invalid request (e.g., missing required field) via Bruno
   - Expected: 400 Bad Request with validation error details
+  - Result: ✅ Validation test suite passes - validators invoked correctly via AddApiValidators()
 
-- [ ] T062 [US2] Verify handlers are invoked for valid requests
+- [X] T062 [US2] Verify handlers are invoked for valid requests
   - Action: Send valid request via Bruno, check handler logs
   - Expected: Handler executes, returns expected response
+  - Result: ✅ Main test suite passes - handlers invoked correctly via AddApiHandlers()
 
 ## Phase 5: User Story 3 - Version API Contracts Independently (P1)
 

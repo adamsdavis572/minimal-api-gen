@@ -13,9 +13,10 @@ public static class EndpointExtensions
     /// <returns>The endpoint route builder for chaining.</returns>
     public static IEndpointRouteBuilder AddApiEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        var group = endpoints.MapGroup("{{{serverBasePath}}}");
         {{#apiInfo}}
         {{#apis}}
-        {{classname}}Endpoints.Map{{classname}}Endpoints(endpoints.MapGroup("{{#commonPath}}{{commonPath}}{{/commonPath}}{{^commonPath}}/{{/commonPath}}"));
+        {{classname}}Endpoints.Map{{classname}}Endpoints(group);
         {{/apis}}
         {{/apiInfo}}
         

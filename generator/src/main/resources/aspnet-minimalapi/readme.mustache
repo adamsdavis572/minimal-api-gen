@@ -16,3 +16,209 @@ The following feature have been enabled in this project :
 {{#useAuthentication}}- [Authentication](https://fast-endpoints.com/docs/security){{/useAuthentication}}
 {{#useValidators}}- [Validation](https://fast-endpoints.com/docs/validation){{/useValidators}}
 {{#useResponseCaching}}- [Response Caching](https://fast-endpoints.com/docs/response-caching){{/useResponseCaching}}
+{{#useNugetPackaging}}
+## NuGet Packaging Workflow
+
+This project is structured for NuGet package distribution with separate Contracts and Implementation assemblies:
+
+### Project Structure
+
+- **{{packageName}}.Contracts** - NuGet package containing API contracts (Endpoints, Commands, Queries, DTOs, Validators)
+- **{{packageName}}** - Implementation project containing business logic (Handlers, Domain Models, Program.cs)
+
+### Building the Contracts Package
+
+```bash
+# Build the Contracts project
+dotnet build src/{{packageName}}.Contracts/
+
+# Create NuGet package
+dotnet pack src/{{packageName}}.Contracts/ --configuration Release --output ./packages/
+```
+
+### Consuming the Contracts Package
+
+In your host application:
+
+1. **Add the NuGet package reference** (or ProjectReference for local development):
+   ```xml
+   <PackageReference Include="{{packageName}}.Contracts" Version="{{packageVersion}}" />
+   ```
+
+2. **Register services in Program.cs**:
+   ```csharp
+   using {{packageName}}.Contracts.Extensions;
+   using {{packageName}}.Extensions;
+
+   var builder = WebApplication.CreateBuilder(args);
+
+   // Register validators from Contracts package
+   builder.Services.AddApiValidators();
+
+   // Register your custom handlers
+   builder.Services.AddApiHandlers();
+
+   var app = builder.Build();
+
+   // Register all API endpoints
+   app.AddApiEndpoints();
+
+   app.Run();
+   ```
+
+3. **Implement handlers** for the Commands/Queries defined in the Contracts package:
+   ```csharp
+   public class AddPetCommandHandler : IRequestHandler<AddPetCommand, PetDto>
+   {
+       public async Task<PetDto> Handle(AddPetCommand command, CancellationToken cancellationToken)
+       {
+           // Your business logic here
+       }
+   }
+   ```
+
+### Assembly Scanning & Service Registration
+
+The dual-project architecture requires special attention to assembly scanning:
+
+#### Why Extension Methods Are Needed
+
+- **Validators** are in the `{{packageName}}.Contracts.dll` assembly (separate from your host application)
+- **Handlers** are in your host application's assembly (the Implementation project)
+- **Endpoints** are defined in `{{packageName}}.Contracts.dll` but need to be registered to your application
+
+**Without extension methods**, you would need to manually register each validator, handler, and endpoint. The extension methods use assembly scanning to discover and register everything automatically.
+
+#### Extension Method Details
+
+**`AddApiValidators()`** (from Contracts package):
+- Scans the `{{packageName}}.Contracts.dll` assembly
+- Finds all `AbstractValidator<T>` classes using FluentValidation's reflection
+- Registers them with the DI container
+- **Why needed**: Validators are in a different assembly than your Program.cs
+
+**`AddApiHandlers()`** (from Implementation project):
+- Scans your host application's assembly (where Program.cs lives)
+- Finds all `IRequestHandler<TRequest, TResponse>` implementations using MediatR's reflection
+- Registers them with the DI container
+- **Why needed**: Convenience method that wraps `services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly))`
+
+**`AddApiEndpoints()`** (from Contracts package):
+- Calls all `Map*Endpoints()` methods from the Contracts assembly
+- Registers all API routes with your application
+- **Why needed**: Endpoints are defined in Contracts but need to be registered to your IEndpointRouteBuilder
+
+#### Manual Registration Alternative
+
+If you prefer not to use the extension methods, you can register services manually:
+
+```csharp
+// Manual validator registration (instead of AddApiValidators)
+builder.Services.AddValidatorsFromAssembly(typeof({{packageName}}.Contracts.Extensions.EndpointExtensions).Assembly);
+
+// Manual handler registration (instead of AddApiHandlers)
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// Manual endpoint registration (instead of AddApiEndpoints)
+app.MapPetApiEndpoints();
+app.MapStoreApiEndpoints();
+// ... map each endpoint individually
+```
+
+The extension methods are recommended for most scenarios as they reduce boilerplate and automatically discover new validators/handlers/endpoints.
+
+### Handler Implementation Guide
+
+Handlers implement the `IRequestHandler<TRequest, TResponse>` interface from MediatR. Here's a complete example:
+
+```csharp
+using MediatR;
+using {{packageName}}.Contracts.Commands;
+using {{packageName}}.Contracts.Dtos;
+using {{packageName}}.Models; // Your domain entities
+
+namespace {{packageName}}.Handlers;
+
+public class AddPetCommandHandler : IRequestHandler<AddPetCommand, PetDto>
+{
+    private readonly IPetRepository _repository;
+    private readonly ILogger<AddPetCommandHandler> _logger;
+
+    // Handlers support dependency injection - constructor parameters are resolved from DI container
+    public AddPetCommandHandler(IPetRepository repository, ILogger<AddPetCommandHandler> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
+
+    public async Task<PetDto> Handle(AddPetCommand command, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Adding new pet: {Name}", command.Name);
+
+        // Map Command (API request) to Domain Entity
+        var pet = new Pet
+        {
+            Name = command.Name,
+            Status = MapStatusToDomain(command.Status),
+            // ... map other properties
+        };
+
+        // Execute business logic
+        var savedPet = await _repository.AddAsync(pet, cancellationToken);
+
+        // Map Domain Entity to DTO (API response)
+        return new PetDto
+        {
+            Id = savedPet.Id,
+            Name = savedPet.Name,
+            Status = MapStatusToDto(savedPet.Status),
+            // ... map other properties
+        };
+    }
+
+    // Helper methods for enum mapping between Domain and DTO types
+    private Pet.StatusEnum? MapStatusToDomain(PetDto.StatusEnum? dtoStatus)
+    {
+        return dtoStatus switch
+        {
+            PetDto.StatusEnum.Available => Pet.StatusEnum.Available,
+            PetDto.StatusEnum.Pending => Pet.StatusEnum.Pending,
+            PetDto.StatusEnum.Sold => Pet.StatusEnum.Sold,
+            null => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(dtoStatus), dtoStatus, "Unknown status")
+        };
+    }
+
+    private PetDto.StatusEnum? MapStatusToDto(Pet.StatusEnum? domainStatus)
+    {
+        return domainStatus switch
+        {
+            Pet.StatusEnum.Available => PetDto.StatusEnum.Available,
+            Pet.StatusEnum.Pending => PetDto.StatusEnum.Pending,
+            Pet.StatusEnum.Sold => PetDto.StatusEnum.Sold,
+            null => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(domainStatus), domainStatus, "Unknown status")
+        };
+    }
+}
+```
+
+**Key Points**:
+- Handlers are registered automatically via `AddApiHandlers()` (uses MediatR assembly scanning)
+- Commands/Queries come from the Contracts package (API surface)
+- DTOs are the response types (also from Contracts package)
+- Domain entities (like `Pet`) live in your Implementation project and contain business logic
+- Handlers map between Command → Domain Entity → DTO
+- CancellationToken should be passed to async operations for proper cancellation support
+
+### Versioning
+
+The Contracts package follows [Semantic Versioning](https://semver.org/):
+
+- **Patch (1.0.X)**: Bug fixes, no API changes
+- **Minor (1.X.0)**: Backward-compatible additions (new optional properties, new endpoints)
+- **Major (X.0.0)**: Breaking changes (renamed/removed properties, signature changes)
+
+Handlers only need updates when upgrading to a new **major version** (breaking changes). Minor and patch updates are backward-compatible.
+
+{{/useNugetPackaging}}
