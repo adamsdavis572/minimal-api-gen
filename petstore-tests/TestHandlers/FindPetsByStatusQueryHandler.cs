@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.DTOs;
 using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
@@ -15,7 +16,7 @@ namespace PetstoreApi.Handlers;
 /// <summary>
 /// Handler for FindPetsByStatusQuery
 /// </summary>
-public class FindPetsByStatusQueryHandler : IRequestHandler<FindPetsByStatusQuery, List<Pet>>
+public class FindPetsByStatusQueryHandler : IRequestHandler<FindPetsByStatusQuery, IEnumerable<PetDto>>
 {
     private readonly IPetStore _petStore;
 
@@ -27,7 +28,7 @@ public class FindPetsByStatusQueryHandler : IRequestHandler<FindPetsByStatusQuer
     /// <summary>
     /// Handles the FindPetsByStatusQuery request
     /// </summary>
-    public async Task<List<Pet>> Handle(FindPetsByStatusQuery request, CancellationToken cancellationToken)
+    public async Task<IEnumerable<PetDto>> Handle(FindPetsByStatusQuery request, CancellationToken cancellationToken)
     {
         // DEBUG: Log what we received
         Console.WriteLine($"[FindByStatusHandler] Received status array: {request.status?.Length ?? 0} items");
@@ -43,6 +44,33 @@ public class FindPetsByStatusQueryHandler : IRequestHandler<FindPetsByStatusQuer
         
         Console.WriteLine($"[FindByStatusHandler] Found {pets.Count()} pets");
         
-        return await Task.FromResult(pets.ToList());
+        // Map Models to DTOs for response
+        var petDtos = pets.Select(MapPetToDto);
+        
+        return await Task.FromResult(petDtos);
+    }
+
+    private static PetDto MapPetToDto(Pet pet)
+    {
+        return new PetDto
+        {
+            Id = pet.Id,
+            Category = pet.Category != null ? new CategoryDto { Id = pet.Category.Id, Name = pet.Category.Name } : null,
+            Name = pet.Name,
+            PhotoUrls = pet.PhotoUrls,
+            Tags = pet.Tags?.Select(t => new TagDto { Id = t.Id, Name = t.Name }).ToList(),
+            Status = MapModelStatusToDtoStatus(pet.Status)
+        };
+    }
+
+    private static PetDto.StatusEnum MapModelStatusToDtoStatus(Pet.StatusEnum status)
+    {
+        return status switch
+        {
+            Pet.StatusEnum.AvailableEnum => PetDto.StatusEnum.AvailableEnum,
+            Pet.StatusEnum.PendingEnum => PetDto.StatusEnum.PendingEnum,
+            Pet.StatusEnum.SoldEnum => PetDto.StatusEnum.SoldEnum,
+            _ => PetDto.StatusEnum.AvailableEnum
+        };
     }
 }

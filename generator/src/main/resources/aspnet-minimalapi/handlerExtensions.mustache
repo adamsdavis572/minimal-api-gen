@@ -1,0 +1,19 @@
+using MediatR;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{packageName}}.Extensions;
+
+public static class HandlerExtensions
+{
+    /// <summary>
+    /// Registers all MediatR handlers from the Implementation package.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddApiHandlers(this IServiceCollection services)
+    {
+        // Use assembly scanning to find all IRequestHandler<TRequest, TResponse> implementations
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(HandlerExtensions).Assembly));
+        return services;
+    }
+}

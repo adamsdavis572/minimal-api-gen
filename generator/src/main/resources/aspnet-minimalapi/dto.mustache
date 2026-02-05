@@ -5,9 +5,26 @@
 
 using System;
 using System.Collections.Generic;
+using {{packageName}}.Converters;
 
 namespace {{packageName}}.DTOs;
 
+{{#isEnum}}
+    /// <summary>
+    /// Gets or Sets {{classname}}
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof({{packageName}}.Converters.EnumMemberJsonConverter<{{classname}}>))]
+    public enum {{classname}}
+    {
+        {{#allowableValues}}{{#enumVars}}
+        /// <summary>
+        /// Enum {{name}} for {{{value}}}
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("{{{value}}}")]
+        {{name}}{{^isString}} = {{{value}}}{{/isString}}{{#isString}}{{^vendorExtensions.x-zero-based-enum}} = {{-index}}{{/vendorExtensions.x-zero-based-enum}}{{/isString}}{{^-last}},
+        {{/-last}}{{/enumVars}}{{/allowableValues}}
+    }
+{{/isEnum}}{{^isEnum}}
 /// <summary>
 /// DTO for {{operationId}} operation
 /// {{#description}}
@@ -17,10 +34,39 @@ namespace {{packageName}}.DTOs;
 public record {{classname}}
 {
 {{#vars}}
+{{#isEnum}}{{^complexType}}
+    /// <summary>
+    /// {{^description}}Gets or Sets {{{name}}}{{/description}}{{{description}}}
+    /// </summary>
+    {{#description}}
+    /// <value>{{{.}}}</value>
+    {{/description}}
+    [System.Text.Json.Serialization.JsonConverter(typeof({{packageName}}.Converters.EnumMemberJsonConverter<{{datatypeWithEnum}}{{^datatypeWithEnum}}{{classname}}{{/datatypeWithEnum}}>))]
+    public enum {{datatypeWithEnum}}{{^datatypeWithEnum}}{{classname}}{{/datatypeWithEnum}}
+    {
+        {{#allowableValues}}{{#enumVars}}
+        /// <summary>
+        /// Enum {{name}} for {{{value}}}
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("{{{value}}}")]
+        {{name}}{{^isString}} = {{{value}}}{{/isString}}{{#isString}}{{^vendorExtensions.x-zero-based-enum}} = {{-index}}{{/vendorExtensions.x-zero-based-enum}}{{/isString}}{{^-last}},
+        {{/-last}}{{/enumVars}}{{/allowableValues}}
+    }
+
+{{/complexType}}{{/isEnum}}
+{{/vars}}
+{{#vars}}
     /// <summary>
     /// {{description}}
     /// </summary>
+{{#isEnum}}
+    [System.Text.Json.Serialization.JsonConverter(typeof({{packageName}}.Converters.EnumMemberJsonConverter<{{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{name}}Enum{{/datatypeWithEnum}}>))]
+    public {{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{name}}Enum{{/datatypeWithEnum}}{{^required}}?{{/required}} {{name}} { get; init; }{{^required}} = default!;{{/required}}
+{{/isEnum}}
+{{^isEnum}}
     public {{{dataType}}}{{^required}}?{{/required}} {{name}} { get; init; }{{^required}} = default!;{{/required}}
+{{/isEnum}}
 
 {{/vars}}
 }
+{{/isEnum}}

@@ -4,7 +4,6 @@
 // </auto-generated>
 
 using MediatR;
-using {{packageName}}.Models;
 using {{packageName}}.DTOs;
 
 namespace {{packageName}}.Commands;
@@ -15,7 +14,7 @@ namespace {{packageName}}.Commands;
 /// {{description}}
 /// {{/description}}
 /// </summary>
-public record {{commandClassName}} : IRequest<{{{mediatrResponseType}}}>
+public record {{commandClassName}} : IRequest<{{{dtoResponseType}}}>
 {
 {{#allParams}}
     /// <summary>

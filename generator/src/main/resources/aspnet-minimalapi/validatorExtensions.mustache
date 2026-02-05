@@ -1,0 +1,19 @@
+using FluentValidation;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{packageName}}.Contracts.Extensions;
+
+public static class ValidatorExtensions
+{
+    /// <summary>
+    /// Registers all FluentValidation validators from the Contracts package.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddApiValidators(this IServiceCollection services)
+    {
+        // Use assembly scanning to find all AbstractValidator<T> descendants
+        services.AddValidatorsFromAssembly(typeof(ValidatorExtensions).Assembly);
+        return services;
+    }
+}

@@ -1,5 +1,6 @@
 {{#useValidators}}using FluentValidation;
-{{/useValidators}}using {{packageName}}.Extensions;{{#useAuthentication}}
+{{/useValidators}}using {{packageName}}.Extensions;{{#useNugetPackaging}}
+using {{packageName}}.Contracts.Extensions;{{/useNugetPackaging}}{{#useAuthentication}}
 using Microsoft.AspNetCore.Authentication.JwtBearer;{{/useAuthentication}}{{#useValidators}}{{#useMediatr}}
 using Microsoft.AspNetCore.Mvc;{{/useMediatr}}{{/useValidators}}
 
@@ -22,10 +23,14 @@ builder.Services.AddSwaggerGen(c =>
         Version = "{{{version}}}{{^version}}v1{{/version}}"
     });
 });
-{{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}{{#useValidators}}
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();{{#useMediatr}}
-builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof({{packageName}}.Behaviors.ValidationBehavior<,>));{{/useMediatr}}{{/useValidators}}{{#useMediatr}}
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));{{/useMediatr}}
+{{#useProblemDetails}}builder.Services.AddProblemDetails();{{/useProblemDetails}}{{#useValidators}}{{#useNugetPackaging}}
+// Register validators from Contracts package
+builder.Services.AddApiValidators();{{/useNugetPackaging}}{{^useNugetPackaging}}
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();{{/useNugetPackaging}}{{#useMediatr}}
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof({{packageName}}.Behaviors.ValidationBehavior<,>));{{/useMediatr}}{{/useValidators}}{{#useMediatr}}{{#useNugetPackaging}}
+// Register handlers from Implementation assembly
+builder.Services.AddApiHandlers();{{/useNugetPackaging}}{{^useNugetPackaging}}
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));{{/useNugetPackaging}}{{/useMediatr}}
 builder.Services.AddApplicationServices();{{#useAuthentication}}
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -192,11 +197,15 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .Produces(200);
 
 {{#useApiVersioning}}
-var {{routePrefix}}Group = app.MapGroup("/{{routePrefix}}");
-{{routePrefix}}Group.MapAllEndpoints();
+var {{routePrefix}}Group = app.MapGroup("/{{routePrefix}}");{{#useNugetPackaging}}
+// Register all API endpoints from Contracts package
+{{routePrefix}}Group.AddApiEndpoints();{{/useNugetPackaging}}{{^useNugetPackaging}}
+{{routePrefix}}Group.MapAllEndpoints();{{/useNugetPackaging}}
 {{/useApiVersioning}}
-{{^useApiVersioning}}
-app.MapAllEndpoints();
+{{^useApiVersioning}}{{#useNugetPackaging}}
+// Register all API endpoints from Contracts package
+app.AddApiEndpoints();{{/useNugetPackaging}}{{^useNugetPackaging}}
+app.MapAllEndpoints();{{/useNugetPackaging}}
 {{/useApiVersioning}}
 
 app.Run();

@@ -8,6 +8,7 @@ using MediatR;
 using PetstoreApi.Commands;
 using PetstoreApi.Queries;
 using PetstoreApi.Models;
+using PetstoreApi.DTOs;
 using PetstoreApi.Services;
 
 namespace PetstoreApi.Handlers;
@@ -15,7 +16,7 @@ namespace PetstoreApi.Handlers;
 /// <summary>
 /// Handler for FindPetsByTagsQuery
 /// </summary>
-public class FindPetsByTagsQueryHandler : IRequestHandler<FindPetsByTagsQuery, List<Pet>>
+public class FindPetsByTagsQueryHandler : IRequestHandler<FindPetsByTagsQuery, IEnumerable<PetDto>>
 {
     private readonly IPetStore _petStore;
 
@@ -27,9 +28,37 @@ public class FindPetsByTagsQueryHandler : IRequestHandler<FindPetsByTagsQuery, L
     /// <summary>
     /// Handles the FindPetsByTagsQuery request
     /// </summary>
-    public async Task<List<Pet>> Handle(FindPetsByTagsQuery request, CancellationToken cancellationToken)
+    public async Task<IEnumerable<PetDto>> Handle(FindPetsByTagsQuery request, CancellationToken cancellationToken)
     {
         var pets = _petStore.FindByTags(request.tags);
-        return await Task.FromResult(pets.ToList());
+        
+        // Map Models to DTOs for response
+        var petDtos = pets.Select(MapPetToDto);
+        
+        return await Task.FromResult(petDtos);
+    }
+
+    private static PetDto MapPetToDto(Pet pet)
+    {
+        return new PetDto
+        {
+            Id = pet.Id,
+            Category = pet.Category != null ? new CategoryDto { Id = pet.Category.Id, Name = pet.Category.Name } : null,
+            Name = pet.Name,
+            PhotoUrls = pet.PhotoUrls,
+            Tags = pet.Tags?.Select(t => new TagDto { Id = t.Id, Name = t.Name }).ToList(),
+            Status = MapModelStatusToDtoStatus(pet.Status)
+        };
+    }
+
+    private static PetDto.StatusEnum MapModelStatusToDtoStatus(Pet.StatusEnum status)
+    {
+        return status switch
+        {
+            Pet.StatusEnum.AvailableEnum => PetDto.StatusEnum.AvailableEnum,
+            Pet.StatusEnum.PendingEnum => PetDto.StatusEnum.PendingEnum,
+            Pet.StatusEnum.SoldEnum => PetDto.StatusEnum.SoldEnum,
+            _ => PetDto.StatusEnum.AvailableEnum
+        };
     }
 }

@@ -16,7 +16,7 @@ namespace PetstoreApi.Handlers;
 /// <summary>
 /// Handler for AddPetCommand
 /// </summary>
-public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
+public class AddPetCommandHandler : IRequestHandler<AddPetCommand, PetDto>
 {
     private readonly IPetStore _petStore;
 
@@ -28,11 +28,11 @@ public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
     /// <summary>
     /// Handles the AddPetCommand request
     /// </summary>
-    public async Task<Pet> Handle(AddPetCommand request, CancellationToken cancellationToken)
+    public async Task<PetDto> Handle(AddPetCommand request, CancellationToken cancellationToken)
     {
         // DEBUG: Log incoming values
         Console.WriteLine($"[AddPetHandler] Received ID: {request.pet.Id?.ToString() ?? "NULL"}");
-        Console.WriteLine($"[AddPetHandler] Received Status: {request.pet.Status ?? "NULL"}");
+        Console.WriteLine($"[AddPetHandler] Received Status: {request.pet.Status}");
         Console.WriteLine($"[AddPetHandler] Received Name: {request.pet.Name ?? "NULL"}");
         
         // Map DTO to Model
@@ -43,7 +43,7 @@ public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
             Name = request.pet.Name,
             PhotoUrls = request.pet.PhotoUrls,
             Tags = request.pet.Tags?.Select(t => new Tag { Id = t.Id.GetValueOrDefault(), Name = t.Name }).ToList(),
-            Status = MapStatus(request.pet.Status)
+            Status = MapDtoStatusToModelStatus(request.pet.Status)
         };
         
         Console.WriteLine($"[AddPetHandler] Mapped to Pet.Id: {pet.Id}, Pet.Status: {pet.Status}");
@@ -52,19 +52,46 @@ public class AddPetCommandHandler : IRequestHandler<AddPetCommand, Pet>
         
         Console.WriteLine($"[AddPetHandler] After Add - Pet.Id: {result.Id}, Pet.Status: {result.Status}");
         
-        return await Task.FromResult(result);
+        // Map Model back to DTO for response
+        var resultDto = MapPetToDto(result);
+        
+        return await Task.FromResult(resultDto);
     }
 
-    private static Pet.StatusEnum MapStatus(string? status)
+    private static Pet.StatusEnum MapDtoStatusToModelStatus(AddPetDto.StatusEnum? status)
     {
-        if (string.IsNullOrEmpty(status)) return Pet.StatusEnum.AvailableEnum;
+        if (!status.HasValue) return Pet.StatusEnum.AvailableEnum;
         
-        return status.ToLower() switch
+        return status.Value switch
         {
-            "available" => Pet.StatusEnum.AvailableEnum,
-            "pending" => Pet.StatusEnum.PendingEnum,
-            "sold" => Pet.StatusEnum.SoldEnum,
+            AddPetDto.StatusEnum.AvailableEnum => Pet.StatusEnum.AvailableEnum,
+            AddPetDto.StatusEnum.PendingEnum => Pet.StatusEnum.PendingEnum,
+            AddPetDto.StatusEnum.SoldEnum => Pet.StatusEnum.SoldEnum,
             _ => Pet.StatusEnum.AvailableEnum
+        };
+    }
+
+    private static PetDto MapPetToDto(Pet pet)
+    {
+        return new PetDto
+        {
+            Id = pet.Id,
+            Category = pet.Category != null ? new CategoryDto { Id = pet.Category.Id, Name = pet.Category.Name } : null,
+            Name = pet.Name,
+            PhotoUrls = pet.PhotoUrls,
+            Tags = pet.Tags?.Select(t => new TagDto { Id = t.Id, Name = t.Name }).ToList(),
+            Status = MapModelStatusToDtoStatus(pet.Status)
+        };
+    }
+
+    private static PetDto.StatusEnum MapModelStatusToDtoStatus(Pet.StatusEnum status)
+    {
+        return status switch
+        {
+            Pet.StatusEnum.AvailableEnum => PetDto.StatusEnum.AvailableEnum,
+            Pet.StatusEnum.PendingEnum => PetDto.StatusEnum.PendingEnum,
+            Pet.StatusEnum.SoldEnum => PetDto.StatusEnum.SoldEnum,
+            _ => PetDto.StatusEnum.AvailableEnum
         };
     }
 }

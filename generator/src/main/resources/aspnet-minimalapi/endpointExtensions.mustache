@@ -1,0 +1,25 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+using {{packageName}}.Endpoints;
+
+namespace {{packageName}}.Contracts.Extensions;
+
+public static class EndpointExtensions
+{
+    /// <summary>
+    /// Registers all API endpoints from the Contracts package.
+    /// </summary>
+    /// <param name="endpoints">The endpoint route builder.</param>
+    /// <returns>The endpoint route builder for chaining.</returns>
+    public static IEndpointRouteBuilder AddApiEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("{{{serverBasePath}}}");
+        {{#apiInfo}}
+        {{#apis}}
+        {{classname}}Endpoints.Map{{classname}}Endpoints(group);
+        {{/apis}}
+        {{/apiInfo}}
+        
+        return endpoints;
+    }
+}

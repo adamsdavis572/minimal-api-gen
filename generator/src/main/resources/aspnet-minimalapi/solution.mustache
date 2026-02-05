@@ -3,14 +3,28 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35122.118
 MinimumVisualStudioVersion = 10.0.40219.1
+{{#useNugetPackaging}}
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "{{packageName}}.Contracts", "src\{{packageName}}.Contracts\{{packageName}}.Contracts.csproj", "{{contractsProjectGuid}}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "{{packageName}}", "src\{{packageName}}\{{packageName}}.csproj", "{{projectConfigurationGuid}}"
 EndProject
+{{/useNugetPackaging}}
+{{^useNugetPackaging}}
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "{{packageName}}", "src\{{packageName}}\{{packageName}}.csproj", "{{projectConfigurationGuid}}"
+EndProject
+{{/useNugetPackaging}}
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|Any CPU = Debug|Any CPU
         Release|Any CPU = Release|Any CPU
     EndGlobalSection
     GlobalSection(ProjectConfigurationPlatforms) = postSolution
+{{#useNugetPackaging}}
+        {{contractsProjectGuid}}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {{contractsProjectGuid}}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {{contractsProjectGuid}}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {{contractsProjectGuid}}.Release|Any CPU.Build.0 = Release|Any CPU
+{{/useNugetPackaging}}
         {{projectConfigurationGuid}}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
         {{projectConfigurationGuid}}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {{projectConfigurationGuid}}.Release|Any CPU.ActiveCfg = Release|Any CPU
