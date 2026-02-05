@@ -106,15 +106,37 @@ devbox run task run-petstore-api
 devbox run task --list
 ```
 
-**Generator Properties:**
+**Generator Configuration:**
 
-The generator supports various configuration options. See the [Configuration Reference](docs/CONFIGURATION.md) for complete details.
+The generator supports 20+ configuration options for features, structure, and NuGet packaging. See the [Configuration Reference](docs/CONFIGURATION.md) for complete details.
 
-Quick examples:
-- `useMediatr=true|false` - Enable MediatR/CQRS pattern (default: true)
-- `packageName=YourApi` - Set the root namespace (default: PetstoreApi)
-- `useProblemDetails=true` - Enable RFC 7807 error responses
-- `useApiVersioning=true` - Enable API versioning
+**Quick Examples:**
+
+```bash
+# Enable MediatR CQRS pattern
+devbox run task gen:petstore ADDITIONAL_PROPS="useMediatr=true"
+
+# Enable NuGet packaging with custom metadata
+devbox run task gen:petstore ADDITIONAL_PROPS="useNugetPackaging=true,packageVersion=2.0.0,packageDescription=My API Contracts"
+
+# Multiple features
+devbox run task gen:petstore ADDITIONAL_PROPS="useMediatr=true,useValidators=true,useRecords=true"
+
+# Custom namespace
+devbox run task gen:petstore ADDITIONAL_PROPS="packageName=MyCompany.ShopApi"
+```
+
+**Popular Options:**
+- `useMediatr` - Enable MediatR/CQRS pattern (default: false)
+- `useNugetPackaging` - Generate separate Contracts NuGet package (default: false)
+- `useValidators` - Add FluentValidation validators (default: false)
+- `useRecords` - Use C# records for DTOs (default: false)
+- `packageName` - Root namespace (default: Org.OpenAPITools)
+- `packageVersion` - NuGet package version (default: OAS version or 1.0.0)
+- `packageDescription` - NuGet description (default: from OAS)
+- `packageLicenseExpression` - SPDX license (default: Apache-2.0)
+
+See [CONFIGURATION.md](docs/CONFIGURATION.md) for all 20+ options.
 
 ### Docker Usage (For CI/CD and Distribution)
 
@@ -217,63 +239,125 @@ devbox run task clean-all
 
 ```
 minimal-api-gen/
-├── Taskfile.yml                        # Build automation (replaces bash scripts)
+├── Taskfile.yml                        # Build automation
 ├── generator/                          # OpenAPI Generator implementation
 │   ├── src/
 │   │   └── main/
 │   │       ├── java/                   # Generator Java code
+│   │       │   └── org/openapitools/codegen/languages/
+│   │       │       └── MinimalApiServerCodegen.java
 │   │       └── resources/
 │   │           └── aspnet-minimalapi/  # Mustache templates
+│   │               ├── api.mustache
+│   │               ├── model.mustache
+│   │               ├── command.mustache
+│   │               ├── query.mustache
+│   │               ├── handler.mustache
+│   │               ├── validator.mustache
+│   │               ├── program.mustache
+│   │               └── nuget-*.mustache
 │   └── pom.xml                         # Maven configuration
-├── petstore-tests/                     # Master copies (persist across regenerations)
+├── petstore-tests/                     # Master test copies
 │   ├── TestHandlers/                   # Handler implementations
-│   │   ├── AddPetCommandHandler.cs
-│   │   ├── GetPetByIdQueryHandler.cs
-│   │   ├── UpdatePetCommandHandler.cs
-│   │   ├── DeletePetCommandHandler.cs
-│   │   └── InMemoryPetStore.cs
 │   ├── PetstoreApi.Tests/              # Test project
-│   │   ├── PetEndpointTests.cs
-│   │   ├── CustomWebApplicationFactory.cs
-│   │   └── PetstoreApi.Tests.csproj
 │   └── petstore.yaml                   # OpenAPI specification
+├── bruno/                              # API integration tests (Bruno)
+│   ├── pet/                            # Pet endpoint tests
+│   ├── validation/                     # Validation tests
+│   └── bruno.json                      # Collection config
+├── specs/                              # Feature specifications
+│   └── 008-nuget-api-contracts/        # Current feature work
 ├── docker/                             # Docker build files
 │   ├── Dockerfile
 │   └── README.md
+├── docs/                               # Documentation
+│   ├── CONFIGURATION.md                # Generator options reference
+│   └── *.md                            # Additional guides
 └── test-output/                        # Generated code (ephemeral)
-    ├── src/PetstoreApi/
-    │   ├── Commands/                   # MediatR commands
-    │   ├── Queries/                    # MediatR queries
-    │   ├── Handlers/                   # Handler stubs (overwritten by petstore-tests/TestHandlers/)
-    │   ├── Models/                     # DTOs
-    │   ├── Features/                   # Endpoint definitions
-    │   ├── Extensions/                 # ServiceCollectionExtensions
-    │   └── Program.cs
-    └── tests/PetstoreApi.Tests/        # Copied from petstore-tests/
+    └── (see "Generated Code Structure" below)
 ```
 
 ## Generated Code Structure
 
-### With MediatR Enabled
+### With useNugetPackaging=false (Default)
+
+Single-project structure with all code in one assembly:
 
 ```
-src/PetstoreApi/
+test-output/
+├── src/
+│   └── Org.OpenAPITools/              # Main API project
+│       ├── Converters/                 # JSON converters
+│       ├── Extensions/                 # Dependency injection
+│       ├── Features/                   # Endpoint definitions (MapGroup)
+│       ├── Models/                     # DTOs & data contracts
+│       ├── Properties/                 # Launch settings
+│       ├── Program.cs                  # App entry point
+│       ├── appsettings.json
+│       └── Org.OpenAPITools.csproj
+├── Org.OpenAPITools.sln
+└── README.md
+```
+
+### With useNugetPackaging=true
+
+Two-project structure with contracts separated for NuGet distribution:
+
+```
+test-output/
+├── Contract/                           # Shared contract files (source)
+│   ├── Converters/                     # Enum converters
+│   └── Endpoints/                      # Endpoint definitions
+├── src/
+│   ├── Org.OpenAPITools.Contracts/    # NuGet package project
+│   │   ├── Extensions/                 # EndpointExtensions.cs
+│   │   ├── (Models linked from ../Org.OpenAPITools/Models/)
+│   │   └── Org.OpenAPITools.Contracts.csproj  # NuGet metadata
+│   └── Org.OpenAPITools/              # Implementation project
+│       ├── Extensions/                 # HandlerExtensions, ServiceCollection
+│       ├── Models/                     # DTOs (original location)
+│       ├── Properties/
+│       ├── Program.cs
+│       └── Org.OpenAPITools.csproj    # References Contracts package
+├── Org.OpenAPITools.sln               # Solution with both projects
+└── README.md
+```
+
+**Key Differences:**
+- **useNugetPackaging=false**: Endpoints in `Features/`, models in `Models/`, converters inline
+- **useNugetPackaging=true**: Endpoints in `Contract/Endpoints/`, models shared via file links, separate Contracts project for NuGet
+
+### With useMediatr=true
+
+Adds CQRS pattern files to the implementation project:
+
+```
+src/Org.OpenAPITools/
 ├── Commands/           # Write operations (POST, PUT, DELETE)
 │   ├── AddPetCommand.cs
 │   ├── UpdatePetCommand.cs
 │   └── DeletePetCommand.cs
 ├── Queries/            # Read operations (GET)
-│   └── GetPetByIdQuery.cs
+│   ├── GetPetByIdQuery.cs
+│   └── ListPetsQuery.cs
 ├── Handlers/           # Business logic implementations
 │   ├── AddPetCommandHandler.cs
-│   ├── UpdatePetCommandHandler.cs
-│   ├── DeletePetCommandHandler.cs
-│   └── GetPetByIdQueryHandler.cs
-├── Models/             # DTOs
-│   └── Pet.cs
-├── Features/           # Endpoint definitions
-│   └── PetApiEndpoints.cs
-└── Program.cs          # App configuration
+│   ├── GetPetByIdQueryHandler.cs
+│   └── ...
+└── ...
+```
+
+### With useValidators=true
+
+Adds FluentValidation validators:
+
+```
+src/Org.OpenAPITools/
+├── Validators/
+│   ├── AddPetCommandValidator.cs
+│   ├── UpdatePetCommandValidator.cs
+│   └── ...
+└── ...
 ```
 
 ### DELETE Operation Example

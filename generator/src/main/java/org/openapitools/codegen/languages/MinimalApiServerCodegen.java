@@ -37,6 +37,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String USE_GLOBAL_EXCEPTION_HANDLER = "useGlobalExceptionHandler";
     public static final String USE_MEDIATR = "useMediatr";
     public static final String USE_NUGET_PACKAGING = "useNugetPackaging";
+    public static final String PACKAGE_DESCRIPTION = "packageDescription";
+    public static final String PACKAGE_LICENSE_EXPRESSION = "packageLicenseExpression";
+    public static final String PACKAGE_REPOSITORY_URL = "packageRepositoryUrl";
+    public static final String PACKAGE_PROJECT_URL = "packageProjectUrl";
+    public static final String PACKAGE_TAGS = "packageTags";
     public static final String ROUTE_PREFIX = "routePrefix";
     public static final String VERSIONING_PREFIX = "versioningPrefix";
     public static final String API_VERSION = "apiVersion";
@@ -99,6 +104,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         addSwitch(USE_GLOBAL_EXCEPTION_HANDLER, "Enable global exception handling middleware.", useGlobalExceptionHandler);
         addSwitch(USE_MEDIATR, "Enable MediatR CQRS pattern with commands, queries, and handlers.", useMediatr);
         addSwitch(USE_NUGET_PACKAGING, "Generate separate NuGet package project for API contracts.", useNugetPackaging);
+        addOption(PACKAGE_DESCRIPTION, "Package description for NuGet feed", null);
+        addOption(PACKAGE_LICENSE_EXPRESSION, "SPDX license expression (e.g., Apache-2.0, MIT)", "Apache-2.0");
+        addOption(PACKAGE_REPOSITORY_URL, "Git repository URL", null);
+        addOption(PACKAGE_PROJECT_URL, "Project homepage URL", null);
+        addOption(PACKAGE_TAGS, "Semicolon-separated NuGet tags", "openapi;minimal-api;contracts");
         addOption(ROUTE_PREFIX, "The route prefix for the API. Used only if useApiVersioning is true", routePrefix);
         addOption(VERSIONING_PREFIX, "The versioning prefix for the API. Used only if useApiVersioning is true", versioningPrefix);
         addOption(API_VERSION, "The version of the API. Used only if useApiVersioning is true", apiVersion);
@@ -110,6 +120,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public void processOpts() {
 
         setPackageDescription(openAPI.getInfo().getDescription());
+        setPackageVersion();
+        setPackageMetadata();
 
         setUseProblemDetails();
         setUseRecordForRequest();
@@ -261,6 +273,61 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         co.baseName = groupKey;
         
         LOGGER.info("Added operation '{}' to tag group '{}'", co.operationId, groupKey);
+    }
+
+    private void setPackageVersion() {
+        String version = "1.0.0"; // Default version
+        
+        // Priority 1: Check if CLI option is provided
+        if (additionalProperties.containsKey("packageVersion")) {
+            version = (String) additionalProperties.get("packageVersion");
+        }
+        // Priority 2: Read from OpenAPI spec
+        else if (openAPI.getInfo() != null && openAPI.getInfo().getVersion() != null && !openAPI.getInfo().getVersion().isEmpty()) {
+            version = openAPI.getInfo().getVersion();
+        }
+        // Priority 3: Use default "1.0.0" (already set)
+        
+        additionalProperties.put("packageVersion", version);
+    }
+
+    private void setPackageMetadata() {
+        // Package description - default to OpenAPI spec description
+        String packageDescription = (String) additionalProperties.get(PACKAGE_DESCRIPTION);
+        if (packageDescription == null || packageDescription.isEmpty()) {
+            if (openAPI.getInfo() != null && openAPI.getInfo().getDescription() != null && !openAPI.getInfo().getDescription().isEmpty()) {
+                packageDescription = openAPI.getInfo().getDescription();
+            } else if (openAPI.getInfo() != null && openAPI.getInfo().getTitle() != null) {
+                packageDescription = "API contracts for " + openAPI.getInfo().getTitle();
+            } else {
+                packageDescription = "API contracts generated from OpenAPI specification";
+            }
+        }
+        additionalProperties.put("packageDescription", packageDescription);
+
+        // License expression - default to Apache-2.0
+        String packageLicenseExpression = (String) additionalProperties.getOrDefault(PACKAGE_LICENSE_EXPRESSION, "Apache-2.0");
+        additionalProperties.put("packageLicenseExpression", packageLicenseExpression);
+
+        // Repository URL - optional, only add if provided
+        if (additionalProperties.containsKey(PACKAGE_REPOSITORY_URL)) {
+            String packageRepositoryUrl = (String) additionalProperties.get(PACKAGE_REPOSITORY_URL);
+            if (packageRepositoryUrl != null && !packageRepositoryUrl.isEmpty()) {
+                additionalProperties.put("packageRepositoryUrl", packageRepositoryUrl);
+            }
+        }
+
+        // Project URL - optional, only add if provided
+        if (additionalProperties.containsKey(PACKAGE_PROJECT_URL)) {
+            String packageProjectUrl = (String) additionalProperties.get(PACKAGE_PROJECT_URL);
+            if (packageProjectUrl != null && !packageProjectUrl.isEmpty()) {
+                additionalProperties.put("packageProjectUrl", packageProjectUrl);
+            }
+        }
+
+        // Tags - default to openapi;minimal-api;contracts
+        String packageTags = (String) additionalProperties.getOrDefault(PACKAGE_TAGS, "openapi;minimal-api;contracts");
+        additionalProperties.put("packageTags", packageTags);
     }
 
     private void setUseProblemDetails() {
