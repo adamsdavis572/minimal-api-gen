@@ -23,7 +23,6 @@ tasks:
     desc: Build the custom OpenAPI generator JAR and runs unit tests
     cmds:
       - task: generator:build
-      - task: copy-test-stubs
       - task: test:generator
 
   generator:build:
