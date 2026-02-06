@@ -6,6 +6,15 @@
     <packaging>jar</packaging>
     <name>aspnet-minimalapi-openapi-generator</name>
     <version>1.0.0</version>
+    
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/adamsdavis572/minimal-api-gen</url>
+        </repository>
+    </distributionManagement>
+    
     <build>
         <plugins>
             <plugin>
