@@ -91,6 +91,14 @@ tasks:
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
       - cp -r {{.TEST_PROJECT_DIR}} {{.TEST_OUTPUT_DIR}}/tests/
       - echo "✓ Test project copied"
+      - |
+        if [ -d "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi.Contracts" ]; then
+          echo "Detected NuGet packaging mode - adding project references..."
+          cd {{.TEST_OUTPUT_DIR}}/tests/PetstoreApi.Tests
+          dotnet add reference ../../src/PetstoreApi.Contracts/PetstoreApi.Contracts.csproj
+          dotnet add reference ../../src/PetstoreApi/PetstoreApi.csproj
+          echo "✓ Added Contracts and Implementation project references"
+        fi
       - echo "Copying test handler implementations..."
       - mkdir -p {{.OUTPUT_SERVICES_DIR}}
       - cp {{.TEST_HANDLERS_DIR}}/GetPetByIdQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
@@ -163,7 +171,7 @@ tasks:
       - gen:copy-test-stubs
     cmds:
       - echo "Running petstore unit tests..."
-      - dotnet test {{.TEST_PROJECT}} --verbosity normal
+      - dotnet test {{.TEST_OUTPUT_DIR}}/tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj --verbosity normal
 
   test:petstore-integration:
     desc: Full petstore API lifecycle test (start → wait → Bruno tests → stop)
