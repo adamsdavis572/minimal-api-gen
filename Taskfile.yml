@@ -275,19 +275,19 @@ tasks:
     dir: ./bruno/OpenAPI_Petstore
     cmds:
       - echo "Running Bruno tests..."
-      - bru run --env Local
+      - bru run --env local
 
   bruno:run-main-suite:
     desc: Run main pet test suite (6 tests - CRUD operations)
     dir: ./bruno/OpenAPI_Petstore
     cmds:
-      - bru run pet/main-pet-test-suite --env Local
+      - bru run pet/main-pet-test-suite --env local
 
   bruno:run-validation-suite:
     desc: Run validation test suite (13 tests - FluentValidation)
     dir: ./bruno/OpenAPI_Petstore
     cmds:
-      - bru run pet/validation-pet-test-suite --env Local
+      - bru run pet/validation-pet-test-suite --env local
 
   bruno:run-all-suites:
     desc: Run both main + validation suites (19 tests total)
@@ -303,7 +303,7 @@ tasks:
     dir: '{{.BRUNO_DIR}}'
     cmds:
       - echo "Running Bruno test(s) - {{.TEST}}"
-      - bru run --env Local {{.TEST}}
+      - bru run --env local {{.TEST}}
 
   # ==============================================================================
   # DOCKER - Container Management
