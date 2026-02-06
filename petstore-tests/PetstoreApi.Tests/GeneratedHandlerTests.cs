@@ -20,13 +20,14 @@ public class GeneratedHandlerTests
     [InlineData(typeof(DeletePetCommandHandler), "DeletePetCommand", "bool")]
     public void HandlersImplementIRequestHandler(Type handlerType, string requestTypeName, string responseTypeName)
     {
-        // Arrange
-        var requestType = handlerType.Assembly.GetTypes()
+        // Arrange - Commands/DTOs may be in Contracts assembly with NuGet packaging
+        var contractsAssembly = typeof(AddPetCommand).Assembly;
+        var requestType = contractsAssembly.GetTypes()
             .FirstOrDefault(t => t.Name == requestTypeName);
         
         var responseType = responseTypeName == "bool" 
             ? typeof(bool) 
-            : handlerType.Assembly.GetTypes().FirstOrDefault(t => t.Name == responseTypeName);
+            : contractsAssembly.GetTypes().FirstOrDefault(t => t.Name == responseTypeName);
 
         // Assert - Request and Response types should exist
         requestType.Should().NotBeNull($"{requestTypeName} should exist in the assembly");
@@ -42,10 +43,10 @@ public class GeneratedHandlerTests
     public void AddPetCommandHandler_IsPartialClass()
     {
         // Arrange - Use project-relative path from test project
-        // Test projects run from bin/Debug/net8.0, so navigate up to project root
+        // Test projects run from bin/Debug/net8.0, so navigate up to test-output root
         var testProjectPath = typeof(GeneratedHandlerTests).Assembly.Location;
         var testProjectDir = Path.GetDirectoryName(testProjectPath)!;
-        var projectRoot = Path.GetFullPath(Path.Combine(testProjectDir, "..", "..", "..", "..", "..", "test-output"));
+        var projectRoot = Path.GetFullPath(Path.Combine(testProjectDir, "..", "..", "..", "..", ".."));
         var sourceFilePath = Path.Combine(projectRoot, "src", "PetstoreApi", "Handlers", "AddPetCommandHandler.cs");
         
         // Assert - File should exist
@@ -65,19 +66,20 @@ public class GeneratedHandlerTests
     [Fact]
     public void AllCommandHandlers_ExistForCommands()
     {
-        // Arrange - Find all Commands in the assembly
+        // Arrange - Commands are in Contracts assembly, Handlers are in Implementation assembly
         var commandsAssembly = typeof(AddPetCommand).Assembly;
+        var handlersAssembly = typeof(AddPetCommandHandler).Assembly;
         var commandTypes = commandsAssembly.GetTypes()
             .Where(t => t.Namespace == "PetstoreApi.Commands" && t.Name.EndsWith("Command"))
             .ToList();
 
-        // Act - Find corresponding handlers
+        // Act - Find corresponding handlers in Implementation assembly
         var missingHandlers = new List<string>();
         
         foreach (var commandType in commandTypes)
         {
             var expectedHandlerName = commandType.Name + "Handler";
-            var handlerType = commandsAssembly.GetTypes()
+            var handlerType = handlersAssembly.GetTypes()
                 .FirstOrDefault(t => t.Namespace == "PetstoreApi.Handlers" && t.Name == expectedHandlerName);
 
             if (handlerType == null)
@@ -117,19 +119,20 @@ public class GeneratedHandlerTests
     [Fact]
     public void AllQueryHandlers_ExistForQueries()
     {
-        // Arrange - Find all Queries in the assembly
-        var queriesAssembly = typeof(AddPetCommand).Assembly; // Same assembly
+        // Arrange - Queries are in Contracts assembly, Handlers are in Implementation assembly
+        var queriesAssembly = typeof(AddPetCommand).Assembly;
+        var handlersAssembly = typeof(AddPetCommandHandler).Assembly;
         var queryTypes = queriesAssembly.GetTypes()
             .Where(t => t.Namespace == "PetstoreApi.Queries" && t.Name.EndsWith("Query"))
             .ToList();
 
-        // Act - Find corresponding handlers
+        // Act - Find corresponding handlers in Implementation assembly
         var missingHandlers = new List<string>();
         
         foreach (var queryType in queryTypes)
         {
             var expectedHandlerName = queryType.Name + "Handler";
-            var handlerType = queriesAssembly.GetTypes()
+            var handlerType = handlersAssembly.GetTypes()
                 .FirstOrDefault(t => t.Namespace == "PetstoreApi.Handlers" && t.Name == expectedHandlerName);
 
             if (handlerType == null)

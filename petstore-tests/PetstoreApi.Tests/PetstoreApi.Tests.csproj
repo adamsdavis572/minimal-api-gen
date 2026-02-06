@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\test-output\src\PetstoreApi\PetstoreApi.csproj" />
+    <ProjectReference Include="..\..\src\PetstoreApi\PetstoreApi.csproj" />
   </ItemGroup>
 
 </Project>
