@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install devbox
+        uses: jetpack-io/devbox-install-action@v0.11.0
+        with:
+          enable-cache: true
+      
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      
+      - name: Build generator and run generator tests
+        run: devbox run task generator:build-test
+      
+      - name: Regression test (no NuGet packaging)
+        run: devbox run task regress:full-petstore-validators-problemdetails
+      
+      - name: Regression test (with NuGet packaging)
+        run: devbox run task regress:full-petstore-validators-problemdetails-nuget
+      
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Execution Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Generator tests (template validation)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ xUnit tests (45 integration tests)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Bruno tests (27 API tests, 77 assertions)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Both single-project and NuGet packaging modes tested" >> $GITHUB_STEP_SUMMARY

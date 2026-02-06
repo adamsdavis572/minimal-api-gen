@@ -1,5 +1,7 @@
 # ASP.NET Core Minimal API Generator
 
+[![CI Status](https://github.com/adamsdavis572/minimal-api-gen/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adamsdavis572/minimal-api-gen/actions/workflows/ci.yml)
+
 A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs with optional MediatR support. This generator produces production-ready code following best practices including CQRS patterns, proper HTTP status codes, and comprehensive test coverage.
 
 ## Features
