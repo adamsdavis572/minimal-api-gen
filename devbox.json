@@ -5,11 +5,16 @@
     "maven@latest",
     "dotnet-sdk_8",
     "go-task@latest",
-    "wget@latest"
+    "wget@latest",
+    "nodejs@latest"
   ],
+  "env": {
+    "PATH": "$PWD/node_modules/.bin:$PATH"
+  },
   "shell": {
     "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
+      "echo 'Welcome to devbox!' > /dev/null",
+      "if [ ! -d node_modules/@usebruno ]; then npm install --no-save @usebruno/cli; fi"
     ],
     "scripts": {
       "test": [
