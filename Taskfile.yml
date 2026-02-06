@@ -19,6 +19,13 @@ tasks:
   # GENERATOR - Build Custom OpenAPI Generator
   # ==============================================================================
 
+  generator:build-test:
+    desc: Build the custom OpenAPI generator JAR and runs unit tests
+    cmds:
+      - task: generator:build
+      - task: copy-test-stubs
+      - task: test:generator
+
   generator:build:
     desc: Build the custom OpenAPI generator JAR
     sources:
@@ -139,6 +146,8 @@ tasks:
   test:generator:
     desc: Run generator unit tests (validates mustache templates directly - no code generation required)
     cmds:
+    
+
       - |
         if ls generator-tests/*.csproj 1> /dev/null 2>&1; then
           echo "Running generator unit tests (template validation)..."
@@ -187,18 +196,27 @@ tasks:
   # ==============================================================================
 
 
+
   regress:full-petstore-validators-problemdetails:
+    desc: "Full petstore regression (generate + test) with useNugetPackaging disabled"
+    cmds:
+      - task: clean:all
+      - task: gen:petstore 
+        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"}
+      - task: test:petstore-unit
+      - task: test:petstore-integration
+
+  regress:full-petstore-validators-problemdetails-nuget:
     desc: "Full petstore regression (build + generate + test)"
     cmds:
       - task: clean:all
-      - task: build-generator
       - task: gen:petstore 
-        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true"}
+        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=true"}
       - task: test:petstore-unit
       - task: test:petstore-integration
-      - task: test:generator
  
 
+ 
 
   # ==============================================================================
   # API - Manage Test API Server
