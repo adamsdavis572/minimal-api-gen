@@ -73,6 +73,7 @@ jobs:
       
       - name: Deploy to GitHub Packages
         run: |
+          cd generator
           mvn deploy -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }} \
             -Drevision=${{ steps.version.outputs.VERSION }} \
             -DskipTests
