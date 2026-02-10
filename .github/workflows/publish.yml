@@ -68,7 +68,6 @@ jobs:
           EOF
       
       - name: Deploy to GitHub Packages
-        working-directory: generator
         run: |
           mvn deploy -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }} \
             -Drevision=${{ steps.version.outputs.VERSION }} \
