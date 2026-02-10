@@ -32,7 +32,7 @@ tasks:
       - generator/src/main/resources/**/*
       - generator/pom.xml
     generates:
-      - generator/target/aspnet-minimalapi-openapi-generator-1.0.0.jar
+      - generator/target/aspnet-minimalapi-openapi-generator.jar
     cmds:
       - echo "Building custom OpenAPI generator..."
       - |
@@ -61,7 +61,7 @@ tasks:
       - generator:build
       - generator:download-cli
     vars:
-      GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator-1.0.0.jar"
+      GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator.jar"
       CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
       ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true"}}'
     cmds:

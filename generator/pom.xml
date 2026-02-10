@@ -16,6 +16,7 @@
     </distributionManagement>
     
     <build>
+        <finalName>aspnet-minimalapi-openapi-generator</finalName>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
