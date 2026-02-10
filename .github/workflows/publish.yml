@@ -24,11 +24,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Install devbox
-        uses: jetpack-io/devbox-install-action@v0.11.0
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14 # Use the latest stable v version
+
+      - name: Install Devbox
+        uses: jetpack-io/devbox-install-action@v0.13.0
         with:
           enable-cache: true
-      
+          skip-nix-installation: true # Tell Devbox to use the Nix we just installed
+            
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
