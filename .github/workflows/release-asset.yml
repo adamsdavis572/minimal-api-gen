@@ -1,0 +1,60 @@
+name: Release Asset Upload
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload-jar:
+    name: Build and Upload Generator JAR
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Install Devbox
+        uses: jetpack-io/devbox-install-action@v0.13.0
+        with:
+          enable-cache: true
+          skip-nix-installation: true
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build generator JAR
+        run: devbox run task generator:build
+
+      - name: Upload JAR to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./generator/target/aspnet-minimalapi-openapi-generator.jar \
+            --clobber
+
+      - name: Create release summary
+        run: |
+          echo "## 🚀 Generator JAR Uploaded to Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release**: ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Name**: ${{ github.event.release.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **JAR File**: aspnet-minimalapi-openapi-generator.jar" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: ${{ github.event.release.html_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Download" >> $GITHUB_STEP_SUMMARY
+          echo "The generator JAR is now available as a release asset." >> $GITHUB_STEP_SUMMARY
+          echo "Download it from the [release page](${{ github.event.release.html_url }})." >> $GITHUB_STEP_SUMMARY
