@@ -477,6 +477,56 @@ Based on [Stack Overflow answer](https://stackoverflow.com/q/78887848) by Arturo
 - **External Systems**: Integrate code generation into other tools
 - **Consistent Environments**: Ensure same generator version across systems
 
+## Releases
+
+### Creating a Release
+
+To publish a new version of the generator:
+
+1. Create and push a tag:
+   ```bash
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+   ```
+
+2. Create a GitHub Release:
+   - Go to the repository's [Releases page](https://github.com/adamsdavis572/minimal-api-gen/releases)
+   - Click "Draft a new release"
+   - Select the tag you just created (e.g., `v1.0.0`)
+   - Fill in the release title and description
+   - Click "Publish release"
+
+3. The release workflow automatically:
+   - Checks out the release tag
+   - Builds the generator JAR using the repository tooling (Devbox/Nix)
+   - Uploads `aspnet-minimalapi-openapi-generator.jar` as a release asset
+
+### Downloading a Release
+
+The generator JAR is available as an asset on each GitHub Release:
+
+```bash
+# Download the latest release JAR
+curl -L -o aspnet-minimalapi-openapi-generator.jar \
+  https://github.com/adamsdavis572/minimal-api-gen/releases/latest/download/aspnet-minimalapi-openapi-generator.jar
+
+# Download a specific version
+curl -L -o aspnet-minimalapi-openapi-generator.jar \
+  https://github.com/adamsdavis572/minimal-api-gen/releases/download/v1.0.0/aspnet-minimalapi-openapi-generator.jar
+```
+
+### Using a Release JAR
+
+```bash
+# Generate code using a released JAR
+java -cp aspnet-minimalapi-openapi-generator.jar:openapi-generator-cli.jar \
+  org.openapitools.codegen.OpenAPIGenerator generate \
+  -g aspnetcore-minimalapi \
+  -i your-api-spec.yaml \
+  -o ./generated \
+  --additional-properties packageName=YourApi,useMediatr=true
+```
+
 ## Customizing the Generator
 
 ### Modifying Templates
