@@ -29,22 +29,17 @@ public class HttpValidationProblemDetails
     public Dictionary<string, string[]> Errors { get; set; } = new();
 }
 
-public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
+public class ValidationTests
 {
-    private readonly HttpClient _client;
-
-    public ValidationTests(CustomWebApplicationFactory factory)
-    {
-        _client = factory.CreateClient();
-    }
-
     [Fact]
     public async Task AddPet_WithMissingRequiredPet_Returns400()
     {
         // Arrange - POST with null body (missing required 'pet' parameter)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
         
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", (AddPetDto?)null);
+        var response = await client.PostAsJsonAsync("/v2/pet", (AddPetDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -54,6 +49,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithValidPet_Returns201Created()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Id = 123,
@@ -65,7 +63,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -75,6 +73,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithMissingName_Returns400()
     {
         // Arrange - Pet with null Name (required property)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Id = 123,
@@ -86,7 +87,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -96,6 +97,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithMissingPhotoUrls_Returns400()
     {
         // Arrange - Pet with null PhotoUrls (required property)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Id = 123,
@@ -107,7 +111,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -117,6 +121,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdatePet_WithMissingName_Returns400()
     {
         // Arrange - Pet with null Name
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new UpdatePetDto
         {
             Id = 123,
@@ -128,7 +135,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync("/v2/pet", pet);
+        var response = await client.PutAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -139,9 +146,11 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - DELETE without required petId parameter
         // Note: Returns 405 because the route /v2/pet/ (with trailing slash) doesn't match the route definition
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
 
         // Act
-        var response = await _client.DeleteAsync("/v2/pet/");
+        var response = await client.DeleteAsync("/v2/pet/");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
@@ -151,9 +160,11 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdatePet_WithMissingRequiredPet_Returns400()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
         
         // Act
-        var response = await _client.PutAsJsonAsync("/v2/pet", (UpdatePetDto?)null);
+        var response = await client.PutAsJsonAsync("/v2/pet", (UpdatePetDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -163,9 +174,11 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithMissingRequiredUser_Returns400()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
         
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/user", (CreateUserDto?)null);
+        var response = await client.PostAsJsonAsync("/v2/user", (CreateUserDto?)null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -175,6 +188,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithValidUser_Returns204NoContent()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var user = new CreateUserDto
         {
             Id = 1,
@@ -188,7 +204,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/user", user);
+        var response = await client.PostAsJsonAsync("/v2/user", user);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -198,6 +214,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithMissingUsername_Returns400()
     {
         // Arrange - User with null Username (required)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var user = new CreateUserDto
         {
             Id = 1,
@@ -211,7 +230,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/user", user);
+        var response = await client.PostAsJsonAsync("/v2/user", user);
 
         // Assert - username is not required, should succeed
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -221,9 +240,11 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task LoginUser_WithMissingRequiredUsername_Returns400()
     {
         // Arrange - missing required 'username' query parameter
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
         
         // Act
-        var response = await _client.GetAsync("/v2/user/login?password=test123");
+        var response = await client.GetAsync("/v2/user/login?password=test123");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -233,9 +254,11 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task LoginUser_WithMissingRequiredPassword_Returns400()
     {
         // Arrange - missing required 'password' query parameter
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
         
         // Act
-        var response = await _client.GetAsync("/v2/user/login?username=testuser");
+        var response = await client.GetAsync("/v2/user/login?username=testuser");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -247,6 +270,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithNameTooShort_Returns400()
     {
         // Arrange - Name is empty string (violates minimum length of 1)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "",
@@ -256,7 +282,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -266,6 +292,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithNameTooLong_Returns400()
     {
         // Arrange - Name exceeds maximum length of 100 characters
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = new string('a', 101),
@@ -275,7 +304,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -287,6 +316,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithInvalidCategoryNamePattern_Returns400()
     {
         // Arrange - Category name contains invalid characters for pattern ^[a-zA-Z0-9]+[a-zA-Z0-9\.\-_]*[a-zA-Z0-9]+$
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "Fluffy",
@@ -296,7 +328,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -306,6 +338,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateUser_WithInvalidEmailPattern_Returns400()
     {
         // Arrange - Email doesn't match email pattern
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var user = new CreateUserDto
         {
             Username = "testuser",
@@ -318,7 +353,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/user", user);
+        var response = await client.PostAsJsonAsync("/v2/user", user);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -330,6 +365,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithTooFewPhotoUrls_Returns400()
     {
         // Arrange - PhotoUrls is empty (requires minimum 1)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "Fluffy",
@@ -339,7 +377,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -349,6 +387,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithTooManyPhotoUrls_Returns400()
     {
         // Arrange - PhotoUrls exceeds maximum of 10
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "Fluffy",
@@ -358,7 +399,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -370,6 +411,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithInvalidNestedCategory_Returns400()
     {
         // Arrange - Category has invalid name (should fail CategoryDtoValidator)
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "Fluffy",
@@ -379,7 +423,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -391,6 +435,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddPet_WithMultipleValidationErrors_Returns400WithAllErrors()
     {
         // Arrange - Multiple validation errors: empty name, empty photoUrls, invalid category
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "", // Too short
@@ -400,7 +447,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -417,6 +464,9 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ValidationError_ReturnsCorrectProblemDetailsFormat()
     {
         // Arrange - Send invalid pet to trigger validation
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var pet = new AddPetDto
         {
             Name = "", // Validation error
@@ -426,7 +476,7 @@ public class ValidationTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", pet);
+        var response = await client.PostAsJsonAsync("/v2/pet", pet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
