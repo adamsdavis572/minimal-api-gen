@@ -5,20 +5,17 @@ using Xunit;
 
 namespace PetstoreApi.Tests;
 
-public class HealthEndpointTests : IClassFixture<CustomWebApplicationFactory>
+public class HealthEndpointTests
 {
-    private readonly HttpClient _client;
-
-    public HealthEndpointTests(CustomWebApplicationFactory factory)
-    {
-        _client = factory.CreateClient();
-    }
-
     [Fact]
     public async Task Health_Returns200OK()
     {
+        // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await client.GetAsync("/health");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -27,8 +24,12 @@ public class HealthEndpointTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Health_ReturnsHealthyStatus()
     {
+        // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await client.GetAsync("/health");
         var content = await response.Content.ReadFromJsonAsync<HealthResponse>();
 
         // Assert

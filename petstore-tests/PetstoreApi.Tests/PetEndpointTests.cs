@@ -10,24 +10,21 @@ using Xunit;
 
 namespace PetstoreApi.Tests;
 
-public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
+public class PetEndpointTests
 {
-    private readonly HttpClient _client;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         Converters = { new EnumMemberJsonConverterFactory() },
         PropertyNameCaseInsensitive = true
     };
 
-    public PetEndpointTests(CustomWebApplicationFactory factory)
-    {
-        _client = factory.CreateClient();
-    }
-
     [Fact]
     public async Task AddPet_WithValidData_Returns201Created()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var newPet = new AddPetDto
         {
             Name = "Fluffy",
@@ -38,7 +35,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync("/v2/pet", newPet);
+        var response = await client.PostAsJsonAsync("/v2/pet", newPet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -56,6 +53,9 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetPet_WithExistingId_ReturnsPet()
     {
         // Arrange - First add a pet
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var newPet = new AddPetDto
         {
             Name = "Buddy",
@@ -64,11 +64,11 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             Tags = new List<TagDto>(),
             Status = AddPetDto.StatusEnum.AvailableEnum
         };
-        var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
+        var addResponse = await client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);
 
         // Act
-        var response = await _client.GetAsync($"/v2/pet/{addedPet!.Id}");
+        var response = await client.GetAsync($"/v2/pet/{addedPet!.Id}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -81,8 +81,12 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetPet_WithNonExistentId_Returns404NotFound()
     {
+        // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         // Act
-        var response = await _client.GetAsync("/v2/pet/99999");
+        var response = await client.GetAsync("/v2/pet/99999");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -92,6 +96,9 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdatePet_WithValidData_Returns200OK()
     {
         // Arrange - First add a pet
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var newPet = new AddPetDto
         {
             Name = "Charlie",
@@ -100,7 +107,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             Tags = new List<TagDto>(),
             Status = AddPetDto.StatusEnum.AvailableEnum
         };
-        var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
+        var addResponse = await client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);
 
         // Update the pet
@@ -115,7 +122,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync("/v2/pet", updatedPetDto);
+        var response = await client.PutAsJsonAsync("/v2/pet", updatedPetDto);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -129,6 +136,9 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdatePet_WithNonExistentId_Returns404NotFound()
     {
         // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var nonExistentPet = new UpdatePetDto
         {
             Id = 99999,
@@ -140,7 +150,7 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync("/v2/pet", nonExistentPet);
+        var response = await client.PutAsJsonAsync("/v2/pet", nonExistentPet);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -150,6 +160,9 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task DeletePet_WithExistingId_Returns204NoContent()
     {
         // Arrange - First add a pet
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         var newPet = new AddPetDto
         {
             Name = "Max",
@@ -158,29 +171,33 @@ public class PetEndpointTests : IClassFixture<CustomWebApplicationFactory>
             Tags = new List<TagDto>(),
             Status = AddPetDto.StatusEnum.AvailableEnum
         };
-        var addResponse = await _client.PostAsJsonAsync("/v2/pet", newPet);
+        var addResponse = await client.PostAsJsonAsync("/v2/pet", newPet);
         var addedPet = await addResponse.Content.ReadFromJsonAsync<Pet>(JsonOptions);
 
         // Act
         var request = new HttpRequestMessage(HttpMethod.Delete, $"/v2/pet/{addedPet!.Id}");
         request.Headers.Add("ApiKey", "special-key");
-        var response = await _client.SendAsync(request);
+        var response = await client.SendAsync(request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Verify pet is actually deleted
-        var getResponse = await _client.GetAsync($"/v2/pet/{addedPet.Id}");
+        var getResponse = await client.GetAsync($"/v2/pet/{addedPet.Id}");
         getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async Task DeletePet_WithNonExistentId_Returns404NotFound()
     {
+        // Arrange
+        var factory = new CustomWebApplicationFactory { Mode = TestMode.Open };
+        var client = factory.CreateClient();
+        
         // Act
         var request = new HttpRequestMessage(HttpMethod.Delete, "/v2/pet/99999");
         request.Headers.Add("ApiKey", "special-key");
-        var response = await _client.SendAsync(request);
+        var response = await client.SendAsync(request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
