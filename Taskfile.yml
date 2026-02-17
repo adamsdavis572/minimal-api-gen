@@ -316,6 +316,12 @@ tasks:
     cmds:
       - bru run pet/validation-pet-test-suite --env local
 
+  bruno:run-auth-suite:
+    desc: Run authorization test suite (4 tests - Feature 009)
+    dir: ./bruno/OpenAPI_Petstore
+    cmds:
+      - bru run auth-suite --env local
+
   bruno:run-all-suites:
     desc: Run both main + validation suites (19 tests total)
     cmds:

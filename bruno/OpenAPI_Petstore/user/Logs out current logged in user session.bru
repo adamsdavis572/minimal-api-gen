@@ -7,16 +7,17 @@ meta {
 get {
   url: {{baseUrl}}/user/logout
   body: none
-  auth: apikey
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{readToken}}
 }
 
 headers {
   api_key: {{apiKey}}
 }
-
-auth:apikey {
-  key: api_key
-  value: {{apiKey}}
+}
   placement: header
 }
 

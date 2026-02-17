@@ -7,7 +7,11 @@ meta {
 delete {
   url: {{baseUrl}}/store/order/:orderId
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{writeToken}}
 }
 
 params:path {
