@@ -1,0 +1,53 @@
+meta {
+  name: Delete Pet - Unauthorized (Read Claim Only)
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/pet/{{authTestPetId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{readToken}}
+}
+
+assert {
+  res.status: eq 403
+}
+
+tests {
+  test("should return 403 Forbidden without write permission", function() {
+    expect(res.status).to.equal(403);
+  });
+  
+  test("should NOT delete pet with only read claim", function() {
+    // Request should be rejected by authorization filter
+    expect(res.status).to.equal(403);
+  });
+}
+
+docs {
+  # Authorization Test: Delete Pet without Write Claim
+  
+  This test verifies that a client with only `permission: read` claim
+  is blocked from deleting a pet.
+  
+  **Expected Behavior**:
+  - Request includes JWT token with "permission: read" claim (no write)
+  - Authorization filter evaluates WriteAccess policy for DeletePet endpoint
+  - Policy check fails (missing "permission: write")
+  - Response status: 403 Forbidden
+  - Pet is NOT deleted
+  
+  **Token Setup**: Set `readToken` in environment with JWT containing:
+  ```json
+  {
+    "permission": "read"
+  }
+  ```
+  
+  **Dependencies**: Requires `authTestPetId` from add-pet-authorized test
+}

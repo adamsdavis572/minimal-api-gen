@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace PetstoreApi.Tests.TestAuthentication;
 
@@ -18,28 +19,35 @@ public static class TestAuthenticationExtensions
         // Register bypass authorization handler to satisfy all requirements
         services.AddSingleton<IAuthorizationHandler, BypassAuthHandler>();
         
-        // Add authorization services (required for authorization middleware)
-        services.AddAuthorization();
+        // Note: No need to call AddAuthorization() - policies already registered by Program.cs
+        // Note: No authentication registration needed - BypassAuthHandler works at authorization level
         
         return services;
     }
 
     /// <summary>
     /// Configures authentication and authorization for Secure Mode (header-based authentication).
+    /// Removes production authentication (JwtBearer) and replaces with MockAuthHandler.
     /// Authentication reads user claims from HTTP headers:
     /// - X-Test-UserId: User identifier for NameIdentifier claim
     /// - X-Test-Role: User role (defaults to "User" if not present)
+    /// - X-Test-Permission: Comma-separated permissions (read, write)
     /// </summary>
     public static IServiceCollection AddSecureModeAuth(this IServiceCollection services)
     {
-        // Add authentication with custom TestScheme
+        // Remove existing authentication services to avoid conflicts with JwtBearer from Program.cs
+        services.RemoveAll<IAuthenticationService>();
+        services.RemoveAll<IAuthenticationSchemeProvider>();
+        services.RemoveAll<IAuthenticationHandlerProvider>();
+        
+        // Add ONLY test authentication with MockAuthHandler
         services.AddAuthentication(MockAuthHandler.AuthenticationScheme)
             .AddScheme<AuthenticationSchemeOptions, MockAuthHandler>(
                 MockAuthHandler.AuthenticationScheme,
                 options => { });
         
-        // Add authorization services
-        services.AddAuthorization();
+        // Note: No need to call AddAuthorization() - policies already registered by Program.cs
+        // The ReadAccess and WriteAccess policies will work with MockAuthHandler's permission claims
         
         return services;
     }

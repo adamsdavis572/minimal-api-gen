@@ -63,7 +63,7 @@ tasks:
     vars:
       GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator.jar"
       CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
-      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true"}}'
+      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=true"}}'
     cmds:
       - echo "Deleting old generated code..."
       - rm -rf {{.TEST_OUTPUT_DIR}}
@@ -82,10 +82,14 @@ tasks:
     vars:
       TEST_HANDLERS_DIR: ./petstore-tests/TestHandlers
       TEST_EXTENSIONS_DIR: ./petstore-tests/TestExtensions
+      TEST_AUTH_DIR: ./petstore-tests/Auth
+      TEST_PROGRAM_DIR: ./petstore-tests/PetstoreApi
       TEST_PROJECT_DIR: ./petstore-tests/PetstoreApi.Tests
       OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Handlers"
       OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Services"
       OUTPUT_EXTENSIONS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Extensions"
+      OUTPUT_FILTERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Filters"
+      OUTPUT_PROGRAM_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
     cmds:
       - echo "Copying test project..."
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
@@ -100,6 +104,7 @@ tasks:
           echo "✓ Added Contracts and Implementation project references"
         fi
       - echo "Copying test handler implementations..."
+      - mkdir -p {{.OUTPUT_HANDLERS_DIR}}
       - mkdir -p {{.OUTPUT_SERVICES_DIR}}
       - cp {{.TEST_HANDLERS_DIR}}/GetPetByIdQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/AddPetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
@@ -110,8 +115,22 @@ tasks:
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
       - echo "Copying ServiceCollectionExtensions with IPetStore registration..."
+      - mkdir -p {{.OUTPUT_EXTENSIONS_DIR}}
       - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
       - echo "✓ ServiceCollectionExtensions copied successfully"
+      - echo "Copying authorization artifacts (Feature 009)..."
+      - mkdir -p {{.OUTPUT_FILTERS_DIR}}
+      - cp {{.TEST_AUTH_DIR}}/PermissionEndpointFilter.cs {{.OUTPUT_FILTERS_DIR}}/
+      - cp {{.TEST_AUTH_DIR}}/AuthorizedEndpointExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
+      - echo "✓ Authorization artifacts copied successfully"
+      - echo "Copying auth-enabled Program.cs..."
+      - cp {{.TEST_PROGRAM_DIR}}/Program.cs {{.OUTPUT_PROGRAM_DIR}}/
+      - echo "✓ Auth-enabled Program.cs copied successfully"
+      - echo "Adding JWT Bearer authentication package..."
+      - |
+        cd {{.OUTPUT_PROGRAM_DIR}}
+        dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
+      - echo "✓ JWT Bearer package added"
 
   # ==============================================================================
   # BUILD - Compile Generated Code
