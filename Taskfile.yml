@@ -121,8 +121,12 @@ tasks:
       - echo "Copying authorization artifacts (Feature 009)..."
       - mkdir -p {{.OUTPUT_FILTERS_DIR}}
       - cp {{.TEST_AUTH_DIR}}/PermissionEndpointFilter.cs {{.OUTPUT_FILTERS_DIR}}/
+      - cp {{.TEST_AUTH_DIR}}/SecurityExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
       - cp {{.TEST_AUTH_DIR}}/AuthorizedEndpointExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
       - echo "✓ Authorization artifacts copied successfully"
+      - echo "Copying exception handling extensions..."
+      - cp {{.TEST_PROGRAM_DIR}}/Extensions/ExceptionHandlingExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
+      - echo "✓ Exception handling extensions copied successfully"
       - echo "Copying auth-enabled Program.cs..."
       - cp {{.TEST_PROGRAM_DIR}}/Program.cs {{.OUTPUT_PROGRAM_DIR}}/
       - echo "✓ Auth-enabled Program.cs copied successfully"
