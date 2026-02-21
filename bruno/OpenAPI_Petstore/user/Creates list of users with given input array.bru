@@ -7,16 +7,17 @@ meta {
 post {
   url: {{baseUrl}}/user/createWithArray
   body: json
-  auth: apikey
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{writeToken}}
 }
 
 headers {
   api_key: {{apiKey}}
 }
-
-auth:apikey {
-  key: api_key
-  value: {{apiKey}}
+}
   placement: header
 }
 

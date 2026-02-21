@@ -1,0 +1,73 @@
+meta {
+  name: Add Pet - Authorized (Write Claim)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{writeToken}}
+}
+
+body:json {
+  {
+    "id": 99991,
+    "category": {
+      "id": 1,
+      "name": "Dogs"
+    },
+    "name": "AuthorizedDog",
+    "photoUrls": ["https://example.com/dog.jpg"],
+    "tags": [
+      {
+        "id": 1,
+        "name": "authorized"
+      }
+    ],
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+  res.body.name: eq AuthorizedDog
+  res.body.status: eq available
+}
+
+tests {
+  test("should return 201 Created with write permission", function() {
+    expect(res.status).to.equal(201);
+  });
+  
+  test("should create pet with write claim", function() {
+    expect(res.body.id).to.equal(99991);
+    expect(res.body.name).to.equal('AuthorizedDog');
+    bru.setEnvVar('authTestPetId', res.body.id);
+  });
+}
+
+docs {
+  # Authorization Test: Add Pet with Write Claim
+  
+  This test verifies that a client with `permission: write` claim
+  can successfully create a new pet.
+  
+  **Expected Behavior**:
+  - Request includes JWT token with "permission: write" claim
+  - Authorization filter allows request to proceed
+  - Endpoint handler creates pet
+  - Response status: 201 Created
+  
+  **Token Setup**: Set `writeToken` in environment with JWT containing:
+  ```json
+  {
+    "permission": "write"
+  }
+  ```
+}

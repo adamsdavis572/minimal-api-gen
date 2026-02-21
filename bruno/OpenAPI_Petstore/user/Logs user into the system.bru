@@ -7,7 +7,11 @@ meta {
 get {
   url: {{baseUrl}}/user/login
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{readToken}}
 }
 
 params:query {

@@ -8,7 +8,7 @@ namespace PetstoreApi.Tests.TestAuthentication;
 
 /// <summary>
 /// Mock authentication handler for testing secure mode.
-/// Reads user claims from HTTP headers (X-Test-UserId, X-Test-Role)
+/// Reads user claims from HTTP headers (X-Test-UserId, X-Test-Role, X-Test-Permission)
 /// and builds a ClaimsPrincipal for authentication.
 /// </summary>
 public class MockAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
@@ -16,6 +16,7 @@ public class MockAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     public const string AuthenticationScheme = "TestScheme";
     public const string UserIdHeader = "X-Test-UserId";
     public const string RoleHeader = "X-Test-Role";
+    public const string PermissionHeader = "X-Test-Permission";
     public const string DefaultRole = "User";
 
     public MockAuthHandler(
@@ -59,6 +60,16 @@ public class MockAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             new Claim(ClaimTypes.Name, userId),
             new Claim(ClaimTypes.Role, role)
         };
+
+        // Extract permission claims from header (comma-separated: "read,write")
+        if (Request.Headers.TryGetValue(PermissionHeader, out var permissionValues))
+        {
+            var permissions = permissionValues.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var permission in permissions)
+            {
+                claims.Add(new Claim("permission", permission.Trim().ToLowerInvariant()));
+            }
+        }
 
         var identity = new ClaimsIdentity(claims, AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

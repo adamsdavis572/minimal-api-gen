@@ -12,6 +12,7 @@ Auto-generated from all feature plans. Last updated: 2025-11-10
 - In-memory (for baseline tests only - production uses handler implementations) (006-mediatr-decoupling)
 - Java 11 (generator build), C# 11+ / .NET 8.0 (generated code) (007-config-fixes)
 - File system (templates in JAR, generated code output to disk) (007-config-fixes)
+- C# 11+ / .NET 8.0 (generated code target), Java 11 (generator build) (009-endpoint-auth-filter)
 
 - Java (OpenAPI Generator codebase) - version detection needed from repository + OpenAPI Generator framework, Java source code analysis tools (grep, IDE) (001-fastendpoints-analysis)
 
@@ -192,6 +193,7 @@ dotnet test test-output/                     # ❌ dotnet not in PATH
 Java (OpenAPI Generator codebase) - version detection needed from repository: Follow standard conventions
 
 ## Recent Changes
+- 009-endpoint-auth-filter: Added C# 11+ / .NET 8.0 (generated code target), Java 11 (generator build)
 - 007-config-fixes: Added Java 11 (generator build), C# 11+ / .NET 8.0 (generated code)
 - 006-mediatr-decoupling: Added Java 11 (generator), C# 11+ / .NET 8.0 (generated code)
 

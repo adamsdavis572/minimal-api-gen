@@ -1,0 +1,70 @@
+meta {
+  name: Add Pet - Unauthorized (Read Claim Only)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{readToken}}
+}
+
+body:json {
+  {
+    "id": 99992,
+    "category": {
+      "id": 1,
+      "name": "Dogs"
+    },
+    "name": "UnauthorizedDog",
+    "photoUrls": ["https://example.com/dog.jpg"],
+    "tags": [
+      {
+        "id": 1,
+        "name": "unauthorized"
+      }
+    ],
+    "status": "available"
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+
+tests {
+  test("should return 403 Forbidden without write permission", function() {
+    expect(res.status).to.equal(403);
+  });
+  
+  test("should NOT create pet with only read claim", function() {
+    // Request should be rejected before reaching handler
+    expect(res.status).to.equal(403);
+  });
+}
+
+docs {
+  # Authorization Test: Add Pet without Write Claim
+  
+  This test verifies that a client with only `permission: read` claim
+  is blocked from creating a new pet.
+  
+  **Expected Behavior**:
+  - Request includes JWT token with "permission: read" claim (no write)
+  - Authorization filter evaluates WriteAccess policy
+  - Policy check fails (missing "permission: write")
+  - Response status: 403 Forbidden
+  - Pet is NOT created
+  
+  **Token Setup**: Set `readToken` in environment with JWT containing:
+  ```json
+  {
+    "permission": "read"
+  }
+  ```
+}
