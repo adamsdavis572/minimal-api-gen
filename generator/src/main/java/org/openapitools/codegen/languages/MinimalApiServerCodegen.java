@@ -161,10 +161,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // For NuGet packaging: API contract goes to Contract/, templates go to Implementation
         this.generatedFolder = useNugetPackaging ? "Contract" : packageFolder;
 
-        if (useAuthentication) {
-            supportingFiles.add(new SupportingFile("loginRequest.mustache", packageFolder + File.separator + apiPackage, "LoginRequest.cs"));
-            supportingFiles.add(new SupportingFile("userLoginEndpoint.mustache", packageFolder + File.separator + apiPackage, "UserLoginEndpoint.cs"));
-        }
+        // Note: Authentication (useAuthentication=true) adds JwtBearer packages and middleware via
+        // program.mustache and project.csproj.mustache. No additional generated files are needed;
+        // the PermissionEndpointFilter is a user-supplied implementation artifact.
 
         supportingFiles.add(new SupportingFile("readme.mustache", "", "README.md"));
         supportingFiles.add(new SupportingFile("gitignore", "", ".gitignore"));
@@ -210,6 +209,19 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         if (useValidators && useMediatr) {
             supportingFiles.add(new SupportingFile("ValidationBehavior.mustache",
                 packageFolder + File.separator + "Behaviors", "ValidationBehavior.cs"));
+        }
+
+        // Configurator interfaces for assembly-scan DI pattern
+        String configuratorsFolder = packageFolder + File.separator + "Configurators";
+        supportingFiles.add(new SupportingFile("IServiceConfigurator.mustache",
+            configuratorsFolder, "IServiceConfigurator.cs"));
+        supportingFiles.add(new SupportingFile("IApplicationConfigurator.mustache",
+            configuratorsFolder, "IApplicationConfigurator.cs"));
+
+        // Global exception handler extension (extracted from inline program.mustache block)
+        if (useGlobalExceptionHandler) {
+            supportingFiles.add(new SupportingFile("exceptionHandlingExtensions.mustache",
+                packageFolder + File.separator + "Extensions", "ExceptionHandlingExtensions.cs"));
         }
     }
 

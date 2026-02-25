@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using {{packageName}}.Endpoints;
 
 namespace {{packageName}}.Contracts.Extensions;
@@ -8,18 +10,24 @@ public static class EndpointExtensions
 {
     /// <summary>
     /// Registers all API endpoints from the Contracts package.
+    /// Any <see cref="IEndpointFilter"/> instances registered in the DI container
+    /// are automatically applied to the route group.
     /// </summary>
-    /// <param name="endpoints">The endpoint route builder.</param>
-    /// <returns>The endpoint route builder for chaining.</returns>
-    public static IEndpointRouteBuilder AddApiEndpoints(this IEndpointRouteBuilder endpoints)
+    /// <param name="app">The web application.</param>
+    /// <returns>The web application for chaining.</returns>
+    public static WebApplication AddApiEndpoints(this WebApplication app)
     {
-        var group = endpoints.MapGroup("{{{serverBasePath}}}");
+        var group = app.MapGroup("{{{serverBasePath}}}");
+
+        foreach (var filter in app.Services.GetServices<IEndpointFilter>())
+            group.AddEndpointFilter(filter);
+
         {{#apiInfo}}
         {{#apis}}
         {{classname}}Endpoints.Map{{classname}}Endpoints(group);
         {{/apis}}
         {{/apiInfo}}
-        
-        return endpoints;
+
+        return app;
     }
 }

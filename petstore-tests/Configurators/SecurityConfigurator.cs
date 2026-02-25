@@ -1,38 +1,37 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using PetstoreApi.Configurators;
 using PetstoreApi.Filters;
 using System.IdentityModel.Tokens.Jwt;
 
-namespace PetstoreApi.Extensions;
+namespace PetstoreApi.Configurators;
 
 /// <summary>
-/// Extension methods for configuring API security (authentication and authorization)
+/// Configures JWT authentication, authorization policies, and the permission endpoint filter.
+/// Implements both IServiceConfigurator and IApplicationConfigurator so a single class
+/// owns all auth concerns — service registration and middleware pipeline.
+/// Kept in petstore-tests/ as auth setup is environment/test-specific.
 /// </summary>
-public static class SecurityExtensions
+public class SecurityConfigurator : IServiceConfigurator, IApplicationConfigurator
 {
     /// <summary>
-    /// Configures JWT authentication and permission-based authorization for the API.
-    /// In development: Uses test secret for JWT validation.
-    /// In production: Uses Auth:Authority and Auth:Audience from configuration.
+    /// Auth middleware must run before endpoints (default Order=0) but after exception handling.
     /// </summary>
-    public static IServiceCollection AddApiSecurity(
-        this IServiceCollection services, 
-        IConfiguration configuration,
-        IHostEnvironment environment)
+    public int Order => 10;
+
+    public void ConfigureServices(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         // Clear default claim type mappings to preserve original JWT claim names
         JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
-        // === AUTHENTICATION ===
         // Well-known test secret for JWT signing (must match bruno/generate-test-tokens.js)
         const string TestSecret = "this-is-a-test-secret-key-for-petstore-api-dev-only-min-32-bytes!";
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
-                options.MapInboundClaims = false; // Preserve original JWT claim names (e.g. "sub" not "http://schemas...")
-                
-                // For testing: Validate tokens signed with known test secret
+                options.MapInboundClaims = false;
+
                 if (environment.IsDevelopment())
                 {
                     options.RequireHttpsMetadata = false;
@@ -53,19 +52,22 @@ public static class SecurityExtensions
                 }
             });
 
-        // === AUTHORIZATION ===
         services.AddAuthorization(options =>
         {
-            // Authorization policies for endpoint filter
-            options.AddPolicy("ReadAccess", policy => 
+            options.AddPolicy("ReadAccess", policy =>
                 policy.RequireClaim("permission", "read"));
-            options.AddPolicy("WriteAccess", policy => 
+            options.AddPolicy("WriteAccess", policy =>
                 policy.RequireClaim("permission", "write"));
         });
 
-        // Register the permission filter
+        // Register as IEndpointFilter so AddApiEndpoints() picks it up automatically from DI
+        services.AddSingleton<IEndpointFilter, PermissionEndpointFilter>();
         services.AddSingleton<PermissionEndpointFilter>();
+    }
 
-        return services;
+    public void Configure(WebApplication app, IHostEnvironment environment)
+    {
+        app.UseAuthentication();
+        app.UseAuthorization();
     }
 }

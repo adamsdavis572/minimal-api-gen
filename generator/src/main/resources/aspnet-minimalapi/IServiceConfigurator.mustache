@@ -1,0 +1,14 @@
+namespace {{packageName}}.Configurators;
+
+/// <summary>
+/// Defines a service configuration module that registers services into the DI container.
+/// Implement this interface to encapsulate service registrations that should be
+/// discovered automatically by the assembly scan in Program.cs.
+/// </summary>
+public interface IServiceConfigurator
+{
+    /// <summary>
+    /// Registers services into the dependency injection container.
+    /// </summary>
+    void ConfigureServices(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment);
+}

@@ -81,15 +81,15 @@ tasks:
     desc: Copy test handlers and test project over generated stubs
     vars:
       TEST_HANDLERS_DIR: ./petstore-tests/TestHandlers
-      TEST_EXTENSIONS_DIR: ./petstore-tests/TestExtensions
       TEST_AUTH_DIR: ./petstore-tests/Auth
-      TEST_PROGRAM_DIR: ./petstore-tests/PetstoreApi
+      TEST_CONFIGURATORS_DIR: ./petstore-tests/Configurators
       TEST_PROJECT_DIR: ./petstore-tests/PetstoreApi.Tests
       OUTPUT_HANDLERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Handlers"
       OUTPUT_SERVICES_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Services"
-      OUTPUT_EXTENSIONS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Extensions"
       OUTPUT_FILTERS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Filters"
-      OUTPUT_PROGRAM_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi"
+      OUTPUT_CONFIGURATORS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Configurators"
+      OUTPUT_EXTENSIONS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Extensions"
+      TEST_EXTENSIONS_DIR: ./petstore-tests/PetstoreApi/Extensions
     cmds:
       - echo "Copying test project..."
       - mkdir -p {{.TEST_OUTPUT_DIR}}/tests
@@ -114,27 +114,26 @@ tasks:
       - cp {{.TEST_HANDLERS_DIR}}/FindPetsByTagsQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
-      - echo "Copying ServiceCollectionExtensions with IPetStore registration..."
-      - mkdir -p {{.OUTPUT_EXTENSIONS_DIR}}
-      - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
-      - echo "✓ ServiceCollectionExtensions copied successfully"
-      - echo "Copying authorization artifacts (Feature 009)..."
+      - echo "Copying PermissionEndpointFilter..."
       - mkdir -p {{.OUTPUT_FILTERS_DIR}}
       - cp {{.TEST_AUTH_DIR}}/PermissionEndpointFilter.cs {{.OUTPUT_FILTERS_DIR}}/
-      - cp {{.TEST_AUTH_DIR}}/SecurityExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
-      - cp {{.TEST_AUTH_DIR}}/AuthorizedEndpointExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
-      - echo "✓ Authorization artifacts copied successfully"
-      - echo "Copying exception handling extensions..."
-      - cp {{.TEST_PROGRAM_DIR}}/Extensions/ExceptionHandlingExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
-      - echo "✓ Exception handling extensions copied successfully"
-      - echo "Copying auth-enabled Program.cs..."
-      - cp {{.TEST_PROGRAM_DIR}}/Program.cs {{.OUTPUT_PROGRAM_DIR}}/
-      - echo "✓ Auth-enabled Program.cs copied successfully"
-      - echo "Adding JWT Bearer authentication package..."
+      - echo "✓ PermissionEndpointFilter copied successfully"
+      - echo "Copying configurators..."
+      - mkdir -p {{.OUTPUT_CONFIGURATORS_DIR}}
+      - cp {{.TEST_CONFIGURATORS_DIR}}/ApplicationServiceConfigurator.cs {{.OUTPUT_CONFIGURATORS_DIR}}/
       - |
-        cd {{.OUTPUT_PROGRAM_DIR}}
-        dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
-      - echo "✓ JWT Bearer package added"
+        if grep -q "JwtBearer" {{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj 2>/dev/null; then
+          echo "Detected JWT Bearer - copying SecurityConfigurator..."
+          cp {{.TEST_CONFIGURATORS_DIR}}/SecurityConfigurator.cs {{.OUTPUT_CONFIGURATORS_DIR}}/
+          echo "✓ SecurityConfigurator copied"
+        else
+          echo "No JWT Bearer - skipping SecurityConfigurator"
+        fi
+      - echo "✓ Configurators copied successfully"
+      - echo "Copying extensions..."
+      - mkdir -p {{.OUTPUT_EXTENSIONS_DIR}}
+      - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
+      - echo "✓ Extensions copied successfully"
 
   # ==============================================================================
   # BUILD - Compile Generated Code
@@ -230,7 +229,7 @@ tasks:
   regress:full-petstore-validators-problemdetails:
     desc: "Full petstore regression (generate + test) with useNugetPackaging disabled"
     cmds:
-      - task: clean:all
+      - task: clean:generated
       - task: gen:petstore 
         vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"}
       - task: test:petstore-unit
@@ -239,11 +238,22 @@ tasks:
   regress:full-petstore-validators-problemdetails-nuget:
     desc: "Full petstore regression (build + generate + test)"
     cmds:
-      - task: clean:all
+      - task: clean:generated
       - task: gen:petstore 
         vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=true"}
       - task: test:petstore-unit
       - task: test:petstore-integration
+        vars: {SUITE: "all-suites"}
+
+  regress:full-petstore-validators-problemdetails-nuget-auth:
+    desc: "Full petstore regression with JWT auth enabled (NuGet packaging)"
+    cmds:
+      - task: clean:generated
+      - task: gen:petstore 
+        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useAuthentication=true,useNugetPackaging=true"}
+      - task: test:petstore-unit
+      - task: test:petstore-integration
+        vars: {SUITE: "all-suites-with-auth"}
  
 
  
@@ -331,6 +341,13 @@ tasks:
     cmds:
       - task: bruno:run-main-suite
       - task: bruno:run-validation-suite
+
+  bruno:run-all-suites-with-auth:
+    desc: Run main + validation + auth suites (23 tests total)
+    cmds:
+      - task: bruno:run-main-suite
+      - task: bruno:run-validation-suite
+      - task: bruno:run-auth-suite
 
   bruno:run-single:
     desc: Run one or more Bruno test files

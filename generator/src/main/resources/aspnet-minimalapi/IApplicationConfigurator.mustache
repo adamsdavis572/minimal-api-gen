@@ -1,0 +1,21 @@
+namespace {{packageName}}.Configurators;
+
+/// <summary>
+/// Defines a middleware/application configuration module that configures the request pipeline.
+/// Implement this interface to encapsulate middleware registrations that should be
+/// discovered automatically by the assembly scan in Program.cs.
+/// Use the Order property to control registration sequence (lower = earlier).
+/// </summary>
+public interface IApplicationConfigurator
+{
+    /// <summary>
+    /// Controls the order in which configurators are applied.
+    /// Lower values run first. Default should be 0.
+    /// </summary>
+    int Order { get; }
+
+    /// <summary>
+    /// Configures the application's request pipeline.
+    /// </summary>
+    void Configure(WebApplication app, IHostEnvironment environment);
+}
