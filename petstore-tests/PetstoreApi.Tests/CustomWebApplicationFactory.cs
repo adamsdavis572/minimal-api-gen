@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PetstoreApi.Services;
 using PetstoreApi.Tests.TestAuthentication;
 
@@ -34,8 +35,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
-            // Register IPetStore for testing
-            services.AddSingleton<IPetStore, InMemoryPetStore>();
+            // Replace IPetStore registered by ApplicationServiceConfigurator with the
+            // in-memory test implementation. Using Replace() avoids double-registration.
+            services.Replace(ServiceDescriptor.Singleton<IPetStore, InMemoryPetStore>());
             
             // Configure authentication/authorization based on test mode
             switch (Mode)

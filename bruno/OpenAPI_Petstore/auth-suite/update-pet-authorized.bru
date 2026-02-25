@@ -1,0 +1,73 @@
+meta {
+  name: Update Pet - Authorized (Write Claim)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/pet
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{writeToken}}
+}
+
+body:json {
+  {
+    "id": {{authTestPetId}},
+    "category": {
+      "id": 1,
+      "name": "Dogs"
+    },
+    "name": "UpdatedAuthorizedDog",
+    "photoUrls": ["https://example.com/updated-dog.jpg"],
+    "tags": [
+      {
+        "id": 1,
+        "name": "updated"
+      }
+    ],
+    "status": "sold"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq UpdatedAuthorizedDog
+  res.body.status: eq sold
+}
+
+tests {
+  test("should return 200 OK with write permission", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("should update pet with write claim", function() {
+    expect(res.body.name).to.equal('UpdatedAuthorizedDog');
+    expect(res.body.status).to.equal('sold');
+  });
+}
+
+docs {
+  # Authorization Test: Update Pet with Write Claim
+  
+  This test verifies that a client with `permission: write` claim
+  can successfully update an existing pet.
+  
+  **Expected Behavior**:
+  - Request includes JWT token with "permission: write" claim
+  - Authorization filter allows request to proceed
+  - Endpoint handler updates pet
+  - Response status: 200 OK
+  
+  **Token Setup**: Set `writeToken` in environment with JWT containing:
+  ```json
+  {
+    "permission": "write"
+  }
+  ```
+  
+  **Dependencies**: Requires `authTestPetId` from add-pet-authorized test
+}

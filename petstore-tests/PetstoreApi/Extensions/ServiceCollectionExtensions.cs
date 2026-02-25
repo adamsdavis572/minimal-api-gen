@@ -9,13 +9,12 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers custom application services
-    /// Add your service registrations here - this file is generated once and not overwritten
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // Register IPetStore service as singleton
+        // Register IPetStore implementation
         services.AddSingleton<IPetStore, InMemoryPetStore>();
-        
+
         return services;
     }
 }
