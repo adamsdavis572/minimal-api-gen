@@ -234,6 +234,7 @@ tasks:
         vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"}
       - task: test:petstore-unit
       - task: test:petstore-integration
+        vars: {SUITE: "all-suites"}
 
   regress:full-petstore-validators-problemdetails-nuget:
     desc: "Full petstore regression (build + generate + test)"
