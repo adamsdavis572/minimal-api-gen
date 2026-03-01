@@ -52,11 +52,12 @@ The generator is opinionated toward modern ASP.NET Core patterns with sensible d
 | `useMediatr` | boolean | `false` | ✅ **IMPLEMENTED** - Enable MediatR CQRS pattern with separate DTOs, commands, queries, and handlers |
 | `useProblemDetails` | boolean | `false` | ✅ **IMPLEMENTED** - Enable RFC 7807 compliant ProblemDetails error responses |
 | `useRecords` | boolean | `false` | Use C# `record` types for request/response models |
-| `useAuthentication` | boolean | `false` | Enable JWT authentication wiring |
 | `useValidators` | boolean | `false` | ✅ **IMPLEMENTED** - Enable [FluentValidation](https://fluentvalidation.net/) for DTO validation with 7 constraint types |
 | `useResponseCaching` | boolean | `false` | Enable ASP.NET Core response caching support |
 | `useApiVersioning` | boolean | `false` | Enable API versioning |
 | `useGlobalExceptionHandler` | boolean | `true` | Add application-wide exception handler middleware |
+
+> **JWT authentication** is not a generator flag. Add it via `devbox run task gen:copy-test-stubs-with-auth` after generation. See [petstore-tests.md](petstore-tests.md).
 
 ### NuGet Packaging
 
@@ -248,7 +249,6 @@ devbox run task gen:petstore ADDITIONAL_PROPS="\
   useMediatr=true,\
   useProblemDetails=true,\
   useRecords=true,\
-  useAuthentication=true,\
   useValidators=true,\
   useResponseCaching=true,\
   useApiVersioning=true,\
@@ -302,7 +302,6 @@ The **ASPNETServer** generator (`aspnetcore`) in OpenAPI Generator provides a **
 | `useMediatr` | ✅ | ❌ (not in main ASPNETServer) |
 | `useProblemDetails` | ✅ | ✅ |
 | `useRecords` | ✅ | ✅ (FastEndpoints only) |
-| `useAuthentication` | ✅ | ✅ (more advanced controls) |
 | `useValidators` | ✅ | ✅ (FastEndpoints) |
 | `useResponseCaching` | ✅ | ✅ (FastEndpoints) |
 | `useApiVersioning` | ✅ | ✅ |

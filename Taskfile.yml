@@ -121,19 +121,28 @@ tasks:
       - echo "Copying configurators..."
       - mkdir -p {{.OUTPUT_CONFIGURATORS_DIR}}
       - cp {{.TEST_CONFIGURATORS_DIR}}/ApplicationServiceConfigurator.cs {{.OUTPUT_CONFIGURATORS_DIR}}/
-      - |
-        if grep -q "JwtBearer" {{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj 2>/dev/null; then
-          echo "Detected JWT Bearer - copying SecurityConfigurator..."
-          cp {{.TEST_CONFIGURATORS_DIR}}/SecurityConfigurator.cs {{.OUTPUT_CONFIGURATORS_DIR}}/
-          echo "✓ SecurityConfigurator copied"
-        else
-          echo "No JWT Bearer - skipping SecurityConfigurator"
-        fi
       - echo "✓ Configurators copied successfully"
       - echo "Copying extensions..."
       - mkdir -p {{.OUTPUT_EXTENSIONS_DIR}}
       - cp {{.TEST_EXTENSIONS_DIR}}/ServiceCollectionExtensions.cs {{.OUTPUT_EXTENSIONS_DIR}}/
       - echo "✓ Extensions copied successfully"
+
+  gen:copy-test-stubs-with-auth:
+    desc: Copy test stubs WITH JWT auth (SecurityConfigurator + JwtBearer NuGet package)
+    vars:
+      TEST_CONFIGURATORS_DIR: ./petstore-tests/Configurators
+      OUTPUT_CONFIGURATORS_DIR: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/Configurators"
+      IMPL_PROJECT: "{{.TEST_OUTPUT_DIR}}/src/PetstoreApi/PetstoreApi.csproj"
+    deps:
+      - gen:copy-test-stubs
+    cmds:
+      - echo "Copying SecurityConfigurator..."
+      - mkdir -p {{.OUTPUT_CONFIGURATORS_DIR}}
+      - cp {{.TEST_CONFIGURATORS_DIR}}/SecurityConfigurator.cs {{.OUTPUT_CONFIGURATORS_DIR}}/
+      - echo "✓ SecurityConfigurator copied"
+      - echo "Adding JwtBearer NuGet package to implementation project..."
+      - dotnet add {{.IMPL_PROJECT}} package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.0
+      - echo "✓ JwtBearer package added"
 
   # ==============================================================================
   # BUILD - Compile Generated Code
@@ -251,7 +260,8 @@ tasks:
     cmds:
       - task: clean:generated
       - task: gen:petstore 
-        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useAuthentication=true,useNugetPackaging=true"}
+        vars: {ADDITIONAL_PROPS: "packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=true"}
+      - task: gen:copy-test-stubs-with-auth
       - task: test:petstore-unit
       - task: test:petstore-integration
         vars: {SUITE: "all-suites-with-auth"}
@@ -449,44 +459,5 @@ tasks:
         mvn clean
       - echo "✓ Cleaned"
 
-  # ==============================================================================
-  # LEGACY ALIASES - Deprecated, use namespaced versions above
-  # ==============================================================================
 
-  build-generator:
-    desc: "[DEPRECATED] Use generator:build"
-    cmds:
-      - task: generator:build
-
-  generate-petstore-minimal-api:
-    desc: "[DEPRECATED] Use gen:petstore"
-    cmds:
-      - task: gen:petstore
-        vars:
-          ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS}}'
-
-  copy-test-stubs:
-    desc: "[DEPRECATED] Use gen:copy-test-stubs"
-    cmds:
-      - task: gen:copy-test-stubs
-
-  quick-test:
-    desc: "[DEPRECATED] Use test:petstore-unit"
-    cmds:
-      - task: test:petstore-unit
-
-  test-ci:
-    desc: "[DEPRECATED] Use test:petstore-integration"
-    cmds:
-      - task: test:petstore-integration
-
-  run-petstore-api:
-    desc: "[DEPRECATED] Use api:run"
-    cmds:
-      - task: api:run
-
-  clean-generated-api:
-    desc: "[DEPRECATED] Use clean:generated"
-    cmds:
-      - task: clean:generated
 

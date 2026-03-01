@@ -16,6 +16,8 @@ To run full suites, use the provided tasks. The API must be running, so use the 
 - **Full Suite:** `devbox run task test:petstore-integration SUITE="all-suites"`
 - **With Auth:** `devbox run task test:petstore-integration SUITE="all-suites-with-auth"`
 
+> ⚠️ The auth suite requires auth stubs to have been set up first. If the API was generated without auth, run `devbox run task gen:copy-test-stubs-with-auth` before starting the API. There is no `useAuthentication` generator flag — JWT auth is enabled purely by the stubs task. See `docs/petstore-tests.md` for details.
+
 ## 2. Debugging a Specific Failure
 If a regression test fails, or the user asks to debug a specific endpoint (e.g., `pet/add-pet.bru`), follow this exact workflow:
 1. Ensure the background API is running: `devbox run task api:start` followed by `devbox run task api:wait`.

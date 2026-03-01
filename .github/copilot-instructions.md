@@ -70,18 +70,22 @@ devbox run task gen:petstore
 
 # Custom properties
 devbox run task gen:petstore ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=true"
-devbox run task gen:petstore ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useAuthentication=true,useNugetPackaging=true"
 devbox run task gen:petstore ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"
 
 # Copy test handlers/stubs/configurators into test-output (called automatically by test tasks)
 devbox run task gen:copy-test-stubs
+
+# Copy stubs AND add JWT Bearer auth (SecurityConfigurator + JwtBearer NuGet package)
+devbox run task gen:copy-test-stubs-with-auth
 ```
 
 `gen:copy-test-stubs` copies from `petstore-tests/` into `test-output/`:
 - `TestHandlers/` → `test-output/src/PetstoreApi/Handlers/` + `Services/`
 - `Auth/PermissionEndpointFilter.cs` → `test-output/src/PetstoreApi/Filters/`
-- `Configurators/ApplicationServiceConfigurator.cs` (+ `SecurityConfigurator.cs` if JWT detected) → `test-output/src/PetstoreApi/Configurators/`
+- `Configurators/ApplicationServiceConfigurator.cs` → `test-output/src/PetstoreApi/Configurators/`
 - `PetstoreApi/Extensions/ServiceCollectionExtensions.cs` → `test-output/src/PetstoreApi/Extensions/`
+
+`gen:copy-test-stubs-with-auth` depends on `gen:copy-test-stubs`, then additionally copies `SecurityConfigurator.cs` and runs `dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer`. There is **no `useAuthentication` generator flag** — JWT auth is purely a test-stubs concern. See [docs/petstore-tests.md](docs/petstore-tests.md).
 
 > ⚠️ **`gen:copy-test-stubs` runs after generation and overwrites files in `test-output/`.** All `test:*` and `api:*` tasks call it automatically. When debugging generated output, inspect files **before** running any test/api task, or compare against the Mustache templates directly — files in `test-output/` may not reflect pure generator output.
 
@@ -114,6 +118,8 @@ devbox run task test:petstore-integration-single TEST='pet/add-pet.bru'
 ```
 
 ### regress:* — Full regression (clean → generate → unit test → integration test)
+These test the full cycle with various configurations of generator properties, ensuring the generated code compiles, passes unit tests, and passes Bruno integration tests. These are more expensive to run, so they are not part of the regular test workflow, but should be run before any release or after significant changes to generator logic or templates.
+Note that these tasks run the full integration test suite, which includes starting the API server and running all Bruno tests, so they can take several minutes to complete. Use the single-suite or single-test variants for quicker feedback when debugging specific issues.
 
 ```bash
 # No NuGet packaging (single-project output)
@@ -122,7 +128,7 @@ devbox run task regress:full-petstore-validators-problemdetails
 # NuGet packaging (dual-project: Contracts + Implementation)
 devbox run task regress:full-petstore-validators-problemdetails-nuget
 
-# NuGet packaging + JWT authentication
+# NuGet packaging + JWT authentication (uses gen:copy-test-stubs-with-auth internally)
 devbox run task regress:full-petstore-validators-problemdetails-nuget-auth
 ```
 
