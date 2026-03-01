@@ -360,6 +360,17 @@ tasks:
       - echo "Running Bruno test(s) - {{.TEST}}"
       - bru run --env local {{.TEST}}
 
+  bruno:debug-single:
+    desc: Run a single Bruno test and output full request/response context to JSON for debugging
+    vars:
+      BRUNO_DIR: ./bruno/OpenAPI_Petstore
+      TEST: '{{.TEST}}'
+      REPORT_FILE: ../../test-output/bruno-debug.json
+    dir: '{{.BRUNO_DIR}}'
+    cmds:
+      - echo "Running Bruno debug on - {{.TEST}}"
+      - bru run --env local {{.TEST}} --reporter-json {{.REPORT_FILE}}
+
   # ==============================================================================
   # DOCKER - Container Management
   # ==============================================================================
