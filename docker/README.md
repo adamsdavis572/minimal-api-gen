@@ -19,6 +19,18 @@ docker run --rm -v $(pwd):/workspace minimal-api-generator:latest \
   --additional-properties useMediatr=true
 ```
 
+## Using Taskfile (Recommended)
+
+From the project root, use `devbox run task` for all Docker operations:
+
+```bash
+devbox run task docker:build   # Build image (uses podman, tags as adamsdavis/minimal-api-generator:latest)
+devbox run task docker:test    # Smoke-test image by running a generation
+devbox run task docker:push    # Push to registry
+```
+
+The published image name is `adamsdavis/minimal-api-generator:latest`.
+
 ## Files
 
 - `Dockerfile` - Image definition
@@ -221,6 +233,24 @@ docker images | grep minimal-api-generator
 
 # Build if missing
 ./build.sh
+```
+
+## Releases
+
+The generator JAR is also published as an asset on each GitHub Release, for use without Docker:
+
+```bash
+# Download latest release JAR
+curl -L -o aspnet-minimalapi-openapi-generator.jar \
+  https://github.com/adamsdavis572/minimal-api-gen/releases/latest/download/aspnet-minimalapi-openapi-generator.jar
+
+# Run against your own spec (also requires openapi-generator-cli.jar on the classpath)
+java -cp "aspnet-minimalapi-openapi-generator.jar:openapi-generator-cli.jar" \
+  org.openapitools.codegen.OpenAPIGenerator generate \
+  -g aspnetcore-minimalapi \
+  -i your-api-spec.yaml \
+  -o ./generated \
+  --additional-properties packageName=YourApi,useMediatr=true
 ```
 
 ## Attribution

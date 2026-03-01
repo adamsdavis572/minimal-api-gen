@@ -35,43 +35,30 @@ A custom OpenAPI Generator for creating clean, modern ASP.NET Core Minimal APIs 
 
 ### Local Development (Recommended)
 
-Use Taskfile commands for all local development and testing:
+All tools are managed via [Devbox](https://www.jetpack.io/devbox). Prefix every task with `devbox run task`:
 
 ```bash
-# Complete workflow: build generator, generate code, and run tests
-devbox run task regenerate
+# 1. Build the custom generator JAR
+devbox run task generator:build
 
-# Or step-by-step:
+# 2. Generate API code from the petstore spec
+devbox run task gen:petstore
 
-# 1. Build the custom generator
-devbox run task build-generator
+# 3. Run unit tests for the generated API
+devbox run task test:petstore-unit
 
-# 2. Generate API code with MediatR/CQRS support
-devbox run task generate-petstore-minimal-api
+# 4. Run full integration tests (start API → Bruno tests → stop)
+devbox run task test:petstore-integration SUITE="all-suites"
 
-# 3. Run tests
-devbox run task test-server-stubs
-
-# 4. Run the generated API server
-devbox run task run-petstore-api
+# 5. Run the generated API server manually
+devbox run task api:run
 ```
 
 Generated code appears in the `test-output/` directory.
 
-### Docker Distribution (For CI/CD and External Systems)
+### Docker (For CI/CD and Distribution)
 
-Package the generator as a Docker image for use in CI/CD pipelines or other systems:
-
-```bash
-# Build the Docker image
-devbox run task docker-build
-
-# Test the Docker image
-devbox run task docker-test
-
-# Push to registry for distribution
-devbox run task docker-push
-```
+The generator is also distributed as a Docker image — no local Java or Maven required. See [docker/README.md](docker/README.md) for build, usage, and CI/CD integration instructions.
 
 ## Generator Usage
 
@@ -80,32 +67,29 @@ devbox run task docker-push
 For local development and testing, use Taskfile commands directly:
 
 ```bash
-devbox run task generate-petstore-minimal-api
+devbox run task gen:petstore
 ```
 
-**Available Tasks:**
+**Key Tasks:**
 
 ```bash
-# Build the generator
-devbox run task build-generator
+# Build the generator JAR
+devbox run task generator:build
 
-# Generate API code with MediatR support
-devbox run task generate-petstore-minimal-api
+# Generate API code from spec
+devbox run task gen:petstore
 
-# Copy test handlers and stubs
-devbox run task copy-test-stubs
+# Copy test handlers and stubs into test-output/
+devbox run task gen:copy-test-stubs
 
-# Run tests
-devbox run task test-server-stubs
+# Run xUnit unit tests
+devbox run task test:petstore-unit
 
-# Complete workflow (generate + test)
-devbox run task regenerate
+# Full integration test lifecycle
+devbox run task test:petstore-integration SUITE="all-suites"
 
-# Quick test (no regeneration)
-devbox run task quick-test
-
-# Run the API server
-devbox run task run-petstore-api
+# Run the API server (foreground)
+devbox run task api:run
 
 # List all available tasks
 devbox run task --list
@@ -198,49 +182,90 @@ docker run --rm -v $(pwd):/workspace adamsdavis/minimal-api-generator:latest \
       --additional-properties useMediatr=true
 ```
 
-## Taskfile Workflows
+## Task Reference
 
-### Complete Regeneration
+All tasks must be invoked as `devbox run task <name>`. Run `devbox run task --list` to see all available tasks.
 
+### `generator:*` — Build the OpenAPI Generator plugin
+
+| Task | Description |
+|---|---|
+| `generator:build` | Build the custom OpenAPI generator JAR (incremental) |
+| `generator:build-test` | Build JAR and run generator unit tests |
+
+### `gen:*` — Generate code from OpenAPI spec
+
+| Task | Description |
+|---|---|
+| `gen:petstore` | Generate server code from the petstore spec (default: MediatR + validators + problem details + NuGet) |
+| `gen:copy-test-stubs` | Copy hand-written handlers, tests, and configurators into `test-output/` |
+| `gen:copy-test-stubs-with-auth` | Same as above, plus JWT Bearer auth (`SecurityConfigurator` + `JwtBearer` NuGet package) |
+
+Pass custom properties with `ADDITIONAL_PROPS`:
 ```bash
-devbox run task regenerate
+devbox run task gen:petstore ADDITIONAL_PROPS="packageName=PetstoreApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"
 ```
 
-**What it does:**
-1. Builds the generator (if needed)
-2. Generates server code from OpenAPI spec
-3. Copies test handlers and test project
-4. Runs the test suite
+### `build:*` — Compile generated code (NuGet packaging workflow only)
 
-### Quick Test
+| Task | Description |
+|---|---|
+| `build:all` | Build the entire solution |
+| `build:contracts-nuget` | Build the Contracts project only |
+| `build:impl-nuget` | Build the Implementation project (depends on `contracts-nuget`) |
 
-For iterative development when code is already generated:
+### `test:*` — Testing
 
-```bash
-devbox run task quick-test
-```
-
-**What it does:**
-1. Copies test handlers over stub handlers
-2. Runs the test suite
-
-Use this when you've made changes to handlers and want to re-test without regenerating everything.
-
-### Individual Tasks
+| Task | Description |
+|---|---|
+| `test:generator` | Run generator unit tests — validates Mustache templates directly, no code generation needed |
+| `test:petstore-unit` | Run xUnit tests for the generated petstore API |
+| `test:petstore-integration` | Full lifecycle: start API → wait healthy → Bruno tests → stop |
+| `test:petstore-integration-single` | Same lifecycle for a single Bruno test file |
 
 ```bash
-# Just copy test files
-devbox run task copy-test-stubs
-
-# Just run tests
-devbox run task test-server-stubs
-
-# Clean generated code
-devbox run task clean-generated-api
-
-# Clean everything including build artifacts
-devbox run task clean-all
+devbox run task test:petstore-integration SUITE="all-suites"             # 19 tests
+devbox run task test:petstore-integration SUITE="all-suites-with-auth"   # 23 tests
+devbox run task test:petstore-integration-single TEST='pet/add-pet.bru'
 ```
+
+### `regress:*` — Full regression suites
+
+Run the complete cycle (clean → generate → unit test → integration test) with a specific configuration. Use these before releases or after significant changes to generator logic or templates.
+
+| Task | Description |
+|---|---|
+| `regress:full-petstore-validators-problemdetails` | Single-project output (`useNugetPackaging=false`) |
+| `regress:full-petstore-validators-problemdetails-nuget` | Dual-project NuGet packaging |
+| `regress:full-petstore-validators-problemdetails-nuget-auth` | Dual-project + JWT auth |
+
+### `api:*` — Manage the test API server
+
+| Task | Description |
+|---|---|
+| `api:run` | Start the API in the foreground (blocks terminal) |
+| `api:start` | Start the API in the background (saves PID) |
+| `api:wait` | Poll `http://localhost:5198/health` until ready |
+| `api:stop` | Stop the background API |
+
+### `bruno:*` — Bruno integration test suites (API must be running)
+
+| Task | Description |
+|---|---|
+| `bruno:run-main-suite` | 6 tests — CRUD operations |
+| `bruno:run-validation-suite` | 13 tests — FluentValidation |
+| `bruno:run-auth-suite` | 4 tests — JWT auth |
+| `bruno:run-all-suites` | 19 tests — main + validation |
+| `bruno:run-all-suites-with-auth` | 23 tests — main + validation + auth |
+| `bruno:run-single TEST='...'` | Run a single `.bru` file |
+| `bruno:debug-single TEST='...'` | Run single test, dump full request/response JSON |
+
+### `clean:*`
+
+| Task | Description |
+|---|---|
+| `clean:generated` | Delete `test-output/` only (keeps generator JAR) |
+| `clean:all` | Delete `test-output/` and all generator build artifacts |
 
 ## Project Structure
 
@@ -286,196 +311,44 @@ minimal-api-gen/
 
 ## Generated Code Structure
 
-### With useNugetPackaging=false (Default)
-
-Single-project structure with all code in one assembly:
-
-```
-test-output/
-├── src/
-│   └── Org.OpenAPITools/              # Main API project
-│       ├── Converters/                 # JSON converters
-│       ├── Extensions/                 # Dependency injection
-│       ├── Features/                   # Endpoint definitions (MapGroup)
-│       ├── Models/                     # DTOs & data contracts
-│       ├── Properties/                 # Launch settings
-│       ├── Program.cs                  # App entry point
-│       ├── appsettings.json
-│       └── Org.OpenAPITools.csproj
-├── Org.OpenAPITools.sln
-└── README.md
-```
-
-### With useNugetPackaging=true
-
-Two-project structure with contracts separated for NuGet distribution:
-
-```
-test-output/
-├── Contract/                           # Shared contract files (source)
-│   ├── Converters/                     # Enum converters
-│   └── Endpoints/                      # Endpoint definitions
-├── src/
-│   ├── Org.OpenAPITools.Contracts/    # NuGet package project
-│   │   ├── Extensions/                 # EndpointExtensions.cs
-│   │   ├── (Models linked from ../Org.OpenAPITools/Models/)
-│   │   └── Org.OpenAPITools.Contracts.csproj  # NuGet metadata
-│   └── Org.OpenAPITools/              # Implementation project
-│       ├── Extensions/                 # HandlerExtensions, ServiceCollection
-│       ├── Models/                     # DTOs (original location)
-│       ├── Properties/
-│       ├── Program.cs
-│       └── Org.OpenAPITools.csproj    # References Contracts package
-├── Org.OpenAPITools.sln               # Solution with both projects
-└── README.md
-```
-
-**Key Differences:**
-- **useNugetPackaging=false**: Endpoints in `Features/`, models in `Models/`, converters inline
-- **useNugetPackaging=true**: Endpoints in `Contract/Endpoints/`, models shared via file links, separate Contracts project for NuGet
-
-### With useMediatr=true
-
-Adds CQRS pattern files to the implementation project:
-
-```
-src/Org.OpenAPITools/
-├── Commands/           # Write operations (POST, PUT, DELETE)
-│   ├── AddPetCommand.cs
-│   ├── UpdatePetCommand.cs
-│   └── DeletePetCommand.cs
-├── Queries/            # Read operations (GET)
-│   ├── GetPetByIdQuery.cs
-│   └── ListPetsQuery.cs
-├── Handlers/           # Business logic implementations
-│   ├── AddPetCommandHandler.cs
-│   ├── GetPetByIdQueryHandler.cs
-│   └── ...
-└── ...
-```
-
-### With useValidators=true
-
-Adds FluentValidation validators:
-
-```
-src/Org.OpenAPITools/
-├── Validators/
-│   ├── AddPetCommandValidator.cs
-│   ├── UpdatePetCommandValidator.cs
-│   └── ...
-└── ...
-```
-
-### DELETE Operation Example
-
-The generator properly handles DELETE operations with boolean returns:
-
-```csharp
-// Command
-public record DeletePetCommand : IRequest<bool>
-{
-    public long petId { get; init; }
-}
-
-// Handler
-public class DeletePetCommandHandler : IRequestHandler<DeletePetCommand, bool>
-{
-    public async Task<bool> Handle(DeletePetCommand request, CancellationToken cancellationToken)
-    {
-        var pet = _petStore.GetById(request.petId);
-        if (pet == null)
-            return false; // Not found
-            
-        _petStore.Delete(request.petId);
-        return true; // Deleted successfully
-    }
-}
-
-// Endpoint
-group.MapDelete("/pet/{petId}", async (IMediator mediator, long petId) =>
-{
-    var command = new DeletePetCommand { petId = petId };
-    var result = await mediator.Send(command);
-    return result ? Results.NoContent() : Results.NotFound();
-});
-```
+The output structure varies depending on which generator properties you enable (`useNugetPackaging`, `useMediatr`, `useValidators`, etc.). See [docs/generated-structure.md](docs/generated-structure.md) for full directory trees and a description of key differences.
 
 ## Testing
 
-The generator includes a complete test suite with 7 baseline tests:
+There are three distinct layers of testing.
+
+### Generator unit tests (`test:generator`)
+
+Validate Mustache template logic and codegen behaviour directly — **no code generation or running API required**. These live in `generator-tests/` and are fast to run after any change to Java codegen or templates:
 
 ```bash
-devbox run task regenerate
+devbox run task generator:build
+devbox run task test:generator
 ```
 
-**Tests cover:**
-- ✅ POST: Add pet returns 201 Created
-- ✅ GET: Retrieve existing pet returns 200 OK
-- ✅ GET: Non-existent pet returns 404 NotFound
-- ✅ PUT: Update existing pet returns 200 OK
-- ✅ PUT: Update non-existent pet returns 404 NotFound
-- ✅ DELETE: Delete existing pet returns 204 NoContent
-- ✅ DELETE: Delete non-existent pet returns 404 NotFound
+### Petstore xUnit tests (`test:petstore-unit`)
 
-### Test Architecture
-
-Tests use:
-- **xUnit** - Test framework
-- **FluentAssertions** - Readable assertions
-- **WebApplicationFactory** - Integration testing
-- **In-Memory Store** - Test data isolation
-
-Each test run uses a fresh in-memory data store, ensuring test isolation.
-
-## Docker Distribution
-
-The Docker image packages the generator for distribution to CI/CD pipelines, team members, or other systems that need to generate code without local Java/Maven setup.
-
-### Building and Publishing
+xUnit tests for the _generated_ C# code, using `WebApplicationFactory` and an in-memory pet store. These live in `petstore-tests/PetstoreApi.Tests/` and are copied into `test-output/` at test time by `gen:copy-test-stubs`:
 
 ```bash
-# Build the Docker image
-devbox run task docker-build
-
-# Test the image works correctly
-devbox run task docker-test
-
-# Push to registry for distribution
-devbox run task docker-push
+devbox run task gen:petstore
+devbox run task test:petstore-unit
 ```
 
-**Build Arguments:**
+The tests verify correct HTTP semantics (201 Created, 404 NotFound, 204 NoContent, validation 400s, etc.) and support two auth modes — open (all checks bypassed) and secure (JWT claims via test headers). See [docs/petstore-tests.md](docs/petstore-tests.md) for a full description of the test infrastructure, the copy-stubs mechanism, and auth wiring.
 
-- `ARG_OPENAPI_GENERATOR_VERSION` - OpenAPI Generator CLI version (default: 7.10.0)
+### Bruno integration tests (`test:petstore-integration`)
 
-**Custom Build:**
+End-to-end API tests using the [Bruno](https://www.usebruno.com/) CLI. Run against a live API server:
 
 ```bash
-podman build \
-  --build-arg ARG_OPENAPI_GENERATOR_VERSION=7.10.0 \
-  -t adamsdavis/minimal-api-generator:latest \
-  -f docker/Dockerfile \
-  .
+devbox run task test:petstore-integration SUITE="all-suites"            # 19 tests
+devbox run task test:petstore-integration SUITE="all-suites-with-auth"  # 23 tests
 ```
 
-### Image Architecture
+## Docker
 
-The Docker image:
-1. Uses OpenJDK 11 JRE (slim)
-2. Downloads OpenAPI Generator CLI
-3. Includes the custom generator JAR
-4. Combines both on classpath via ENTRYPOINT
-
-**Source Attribution:**
-Based on [Stack Overflow answer](https://stackoverflow.com/q/78887848) by Arturo Martínez Díaz (CC BY-SA 4.0).
-
-### Use Cases
-
-- **CI/CD Pipelines**: Generate code as part of automated builds
-- **Team Distribution**: Share generator without Java/Maven dependencies
-- **External Systems**: Integrate code generation into other tools
-- **Consistent Environments**: Ensure same generator version across systems
+The generator is published as a Docker image (`adamsdavis/minimal-api-generator:latest`) for use in CI/CD pipelines and other environments where local Java/Maven setup is not desirable. See [docker/README.md](docker/README.md) for build instructions, `docker run` usage examples, CI/CD integration, and troubleshooting.
 
 ## Releases
 
@@ -544,14 +417,15 @@ After modifying templates:
 
 **Local Development:**
 ```bash
-devbox run task build-generator
-devbox run task regenerate
+devbox run task generator:build
+devbox run task gen:petstore
+devbox run task test:petstore-unit
 ```
 
 **Docker:**
 ```bash
-devbox run task docker-build
-devbox run task docker-test
+devbox run task docker:build
+devbox run task docker:test
 ```
 
 ### Extending the Java Code
@@ -571,28 +445,26 @@ Key methods:
 ### Adding New Features
 
 1. Modify templates or Java code
-2. Rebuild generator: `devbox run task build-generator`
-3. Test generation: `devbox run task regenerate`
-4. Verify all tests pass
+2. Rebuild generator: `devbox run task generator:build`
+3. Generate and test: `devbox run task gen:petstore test:petstore-unit`
+4. Run full integration tests: `devbox run task test:petstore-integration SUITE="all-suites"`
 5. Commit changes
 
 ### Debugging
 
 View full generation output:
 ```bash
-devbox run task generate-petstore-minimal-api
+devbox run task clean:generated gen:petstore
 ```
 
 Run the API server for manual testing:
 ```bash
-devbox run task run-petstore-api
+devbox run task api:run
 ```
 
-Build and test manually:
+Debug a single Bruno test with full request/response output:
 ```bash
-cd test-output
-devbox run dotnet build src/PetstoreApi/PetstoreApi.csproj
-devbox run dotnet test tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj
+devbox run task bruno:debug-single TEST='pet/add-pet.bru'
 ```
 
 ## OpenAPI Specification
@@ -608,8 +480,9 @@ To use your own OpenAPI spec, update the `PETSTORE_SPEC` variable in `Taskfile.y
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make changes and ensure tests pass: `devbox run task regenerate`
-4. Test Docker build if applicable: `devbox run task docker-build && devbox run task docker-test`
+3. Make changes and ensure tests pass: `devbox run task gen:petstore test:petstore-unit`
+4. Run full regression: `devbox run task regress:full-petstore-validators-problemdetails-nuget`
+5. Test Docker build if applicable: `devbox run task docker:build && devbox run task docker:test`
 5. Commit with clear messages
 6. Push and create a pull request
 
@@ -623,5 +496,8 @@ Built on [OpenAPI Generator](https://github.com/OpenAPITools/openapi-generator) 
 
 ## Documentation
 
-- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete guide to all generator options and comparison with OpenAPI Generator
+- **[Configuration Reference](docs/CONFIGURATION.md)** - All 20+ generator options with examples
+- **[Petstore Test Infrastructure](docs/petstore-tests.md)** - How the test stubs, copy mechanism, and auth wiring work
+- **[Generated Code Structure](docs/generated-structure.md)** - Directory trees for each combination of generator flags
+- **[Docker Usage](docker/README.md)** - Building, distributing, and using the generator image
 - [OpenAPI Generator Docs](https://github.com/OpenAPITools/openapi-generator/blob/master/docs/customization.md) - Upstream documentation
