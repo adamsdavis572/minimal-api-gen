@@ -30,7 +30,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     public static final String PROJECT_NAME = "projectName";
     public static final String USE_PROBLEM_DETAILS = "useProblemDetails";
     public static final String USE_RECORDS = "useRecords";
-    public static final String USE_AUTHENTICATION = "useAuthentication";
     public static final String USE_VALIDATORS = "useValidators";
     public static final String USE_RESPONSE_CACHING = "useResponseCaching";
     public static final String USE_API_VERSIONING = "useApiVersioning";
@@ -53,7 +52,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
 
     private boolean useProblemDetails = false;
     private boolean useRecords = false;
-    private boolean useAuthentication = false;
     private boolean useValidators = false;
     private boolean useResponseCaching = false;
     private boolean useApiVersioning = false;
@@ -97,7 +95,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
 
         addSwitch(USE_PROBLEM_DETAILS, "Enable RFC 7807 compatible error responses.", useProblemDetails);
         addSwitch(USE_RECORDS, "Use record instead of class for the requests and response.", useRecords);
-        addSwitch(USE_AUTHENTICATION, "Enable JWT authentication.", useAuthentication);
         addSwitch(USE_VALIDATORS, "Enable FluentValidation request validators.", useValidators);
         addSwitch(USE_RESPONSE_CACHING, "Enable response caching.", useResponseCaching);
         addSwitch(USE_API_VERSIONING, "Enable API versioning.", useApiVersioning);
@@ -125,7 +122,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
 
         setUseProblemDetails();
         setUseRecordForRequest();
-        setUseAuthentication();
         setUseValidators();
         setUseResponseCaching();
         setUseApiVersioning();
@@ -160,10 +156,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         String packageFolder = sourceFolder + File.separator + packageName;
         // For NuGet packaging: API contract goes to Contract/, templates go to Implementation
         this.generatedFolder = useNugetPackaging ? "Contract" : packageFolder;
-
-        // Note: Authentication (useAuthentication=true) adds JwtBearer packages and middleware via
-        // program.mustache and project.csproj.mustache. No additional generated files are needed;
-        // the PermissionEndpointFilter is a user-supplied implementation artifact.
 
         supportingFiles.add(new SupportingFile("readme.mustache", "", "README.md"));
         supportingFiles.add(new SupportingFile("gitignore", "", ".gitignore"));
@@ -355,14 +347,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             useRecords = convertPropertyToBooleanAndWriteBack(USE_RECORDS);
         } else {
             additionalProperties.put(USE_RECORDS, useRecords);
-        }
-    }
-
-    private void setUseAuthentication() {
-        if (additionalProperties.containsKey(USE_AUTHENTICATION)) {
-            useAuthentication = convertPropertyToBooleanAndWriteBack(USE_AUTHENTICATION);
-        } else {
-            additionalProperties.put(USE_AUTHENTICATION, useAuthentication);
         }
     }
 
