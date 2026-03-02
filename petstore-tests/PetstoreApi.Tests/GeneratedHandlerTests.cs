@@ -55,12 +55,13 @@ public class GeneratedHandlerTests
         // Read file content
         var sourceContent = File.ReadAllText(sourceFilePath);
 
-        // Assert - Should contain partial keyword
-        sourceContent.Should().Contain("public class AddPetCommandHandler",
-            "Handler should be declared as a class (partial keyword may be in another file part)");
+        // Assert - Should contain partial class declaration
+        sourceContent.Should().Contain("public partial class AddPetCommandHandler",
+            "Handler should be declared as a partial class to support companion .Impl.cs business logic files (FR-029)");
         
-        // Note: The test validates the handler structure exists. The partial keyword allows
-        // developers to extend handlers in separate files without regeneration conflicts (FR-029).
+        // Assert - Should declare partial ExecuteAsync as the extension point
+        sourceContent.Should().Contain("private partial Task",
+            "Handler should declare private partial ExecuteAsync as the extension point for business logic (FR-029)");
     }
 
     [Fact]

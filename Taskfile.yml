@@ -106,12 +106,21 @@ tasks:
       - echo "Copying test handler implementations..."
       - mkdir -p {{.OUTPUT_HANDLERS_DIR}}
       - mkdir -p {{.OUTPUT_SERVICES_DIR}}
-      - cp {{.TEST_HANDLERS_DIR}}/GetPetByIdQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
-      - cp {{.TEST_HANDLERS_DIR}}/AddPetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
-      - cp {{.TEST_HANDLERS_DIR}}/UpdatePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
-      - cp {{.TEST_HANDLERS_DIR}}/DeletePetCommandHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
-      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByStatusQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
-      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByTagsQueryHandler.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/GetPetByIdQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/AddPetCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/UpdatePetCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/DeletePetCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByStatusQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/FindPetsByTagsQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/DeleteOrderCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/DeleteUserCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/FakeNullableExampleTestQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/GetInventoryQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/GetOrderByIdQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/GetUserByNameQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/LoginUserQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/PlaceOrderCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/UploadFileCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
       - echo "Copying PermissionEndpointFilter..."

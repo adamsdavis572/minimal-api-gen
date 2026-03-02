@@ -686,7 +686,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                     }
                 }
                 
-                generateMediatrFilesForOperation(compiler, op, results);
+                generateMediatrFilesForOperation(compiler, op, results, allModels);
             } catch (Exception e) {
                 LOGGER.error("Failed to generate MediatR files for operation '{}': {}", 
                     op.operationId, e.getMessage(), e);
@@ -950,8 +950,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
      * @param operation The operation to generate files for
      * @param objs The operations map containing shared context (packageName, imports, etc.)
      */
-    private void generateMediatrFilesForOperation(Mustache.Compiler compiler, CodegenOperation operation, 
-                                                   OperationsMap objs) throws Exception {
+    private void generateMediatrFilesForOperation(Mustache.Compiler compiler, CodegenOperation operation,
+                                                   OperationsMap objs, List<ModelMap> allModels) throws Exception {
         Boolean isQuery = (Boolean) operation.vendorExtensions.get("isQuery");
         String requestClassName = (String) operation.vendorExtensions.get("requestClassName");
         String handlerClassName = (String) operation.vendorExtensions.get("handlerClassName");
@@ -982,6 +982,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         data.put("bodyParam", operation.bodyParam);
         data.put("hasBodyParam", operation.getHasBodyParam());
         data.put("description", operation.summary);
+        // Add handler implementation data (property-by-property mapping code, enum switch methods)
+        Map<String, Object> handlerData = prepareHandlerData(operation, allModels);
+        data.putAll(handlerData);
         
         // Determine template and folder based on operation type
         String requestTemplate = (isQuery != null && isQuery) ? "query.mustache" : "command.mustache";
@@ -1007,6 +1010,310 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         }
     }
     
+    // =========================================================================
+    // Handler implementation data helpers (property mapping, enum switch code)
+    // =========================================================================
+
+    /** Simple holder for one enum mapping method's parameters */
+    private static class EnumMappingInfo {
+        final String methodName;
+        final String sourceType;
+        final boolean isSourceNullable;
+        final String targetType;
+        final String defaultValue;
+        final List<String> enumNames;
+
+        EnumMappingInfo(String methodName, String sourceType, boolean isSourceNullable,
+                        String targetType, String defaultValue, List<String> enumNames) {
+            this.methodName = methodName;
+            this.sourceType = sourceType;
+            this.isSourceNullable = isSourceNullable;
+            this.targetType = targetType;
+            this.defaultValue = defaultValue;
+            this.enumNames = enumNames;
+        }
+    }
+
+    /**
+     * Prepare handler implementation data for the handler.mustache template.
+     * Builds DTO↔Model property mapping code and enum switch helper methods as
+     * pre-rendered strings so Mustache just outputs them verbatim via {{{...}}}.
+     */
+    private Map<String, Object> prepareHandlerData(CodegenOperation operation, List<ModelMap> allModels) {
+        Map<String, Object> data = new HashMap<>();
+
+        Boolean isUnit = Boolean.TRUE.equals(operation.vendorExtensions.get("isUnit"));
+        String dtoResponseType = (String) operation.vendorExtensions.get("dtoResponseType");
+        boolean isBool = "bool".equals(dtoResponseType);
+        boolean isCollection = dtoResponseType != null && dtoResponseType.startsWith("IEnumerable<");
+        boolean isDeleteWithBool = Boolean.TRUE.equals(operation.vendorExtensions.get("x-is-delete-with-bool"));
+
+        data.put("isDeleteWithBool", isDeleteWithBool ? Boolean.TRUE : null);
+
+        // Accumulate enum mapping methods (deduplicated by key)
+        Map<String, EnumMappingInfo> dtoToModelEnumMappings = new LinkedHashMap<>();
+        Map<String, EnumMappingInfo> modelToDtoEnumMappings = new LinkedHashMap<>();
+
+        // --- Body param: DTO → Model mapping ---
+        if (operation.bodyParam != null && !isUnit) {
+            String dtoClassName = (String) operation.bodyParam.vendorExtensions.get("dtoType");
+            String modelClassName = operation.bodyParam.dataType;
+            String paramName = operation.bodyParam.paramName;
+            CodegenModel bodyModel = findModelByName(modelClassName, allModels);
+            if (bodyModel != null && dtoClassName != null) {
+                String body = buildDtoToModelBody(bodyModel, dtoClassName, modelClassName, allModels, dtoToModelEnumMappings);
+                data.put("dtoToModelBody", body);
+                data.put("bodyModelClassName", modelClassName);
+                data.put("bodyDtoClassName", dtoClassName);
+                data.put("bodyParamName", paramName);
+                data.put("hasDtoToModelMapping", Boolean.TRUE);
+            }
+        }
+
+        // --- Response model: Model → DTO mapping ---
+        if (!isUnit && !isBool && operation.returnBaseType != null && !isPrimitiveType(operation.returnBaseType)) {
+            String responseModelName = operation.returnBaseType;
+            String responseDtoName = responseModelName + "Dto";
+            CodegenModel responseModel = findModelByName(responseModelName, allModels);
+            if (responseModel != null) {
+                String body = buildModelToDtoBody(responseModel, responseModelName, responseDtoName, allModels, modelToDtoEnumMappings);
+                data.put("modelToDtoBody", body);
+                data.put("responseModelClassName", responseModelName);
+                data.put("responseDtoClassName", responseDtoName);
+                data.put("isCollection", isCollection ? Boolean.TRUE : null);
+                data.put("hasModelToDtoMapping", Boolean.TRUE);
+            }
+        }
+
+        // --- Build enum mapping methods ---
+        StringBuilder enumMethods = new StringBuilder();
+        for (EnumMappingInfo m : dtoToModelEnumMappings.values()) {
+            enumMethods.append("\n").append(buildEnumSwitchMethod(m));
+        }
+        for (EnumMappingInfo m : modelToDtoEnumMappings.values()) {
+            enumMethods.append("\n").append(buildEnumSwitchMethod(m));
+        }
+        if (enumMethods.length() > 0) {
+            data.put("enumMappingMethods", enumMethods.toString());
+            data.put("hasEnumMappingMethods", Boolean.TRUE);
+        }
+
+        return data;
+    }
+
+    /** Find a CodegenModel by its class name in the allModels list. */
+    private CodegenModel findModelByName(String className, List<ModelMap> allModels) {
+        if (className == null || allModels == null) return null;
+        for (ModelMap mm : allModels) {
+            if (mm.getModel() != null && className.equals(mm.getModel().getClassname())) {
+                return mm.getModel();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build the body of the static MapDtoToDomain(dtoClassName dto) method.
+     * Returns new ModelType { Prop1 = dto.Prop1, ... };
+     */
+    private String buildDtoToModelBody(CodegenModel model, String dtoType, String modelType,
+                                       List<ModelMap> allModels,
+                                       Map<String, EnumMappingInfo> enumMappings) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("        return new ").append(modelType).append("\n        {\n");
+        for (CodegenProperty prop : model.getVars()) {
+            sb.append("            ").append(prop.name).append(" = ");
+            if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
+                List<String> names = getEnumNames(prop);
+                String defaultVal = names.isEmpty() ? "default" : modelType + "." + prop.datatypeWithEnum + "." + names.get(0);
+                String methodName = "Map" + prop.name + "DtoToModel";
+                enumMappings.computeIfAbsent(prop.name + "_dtoToModel", k -> new EnumMappingInfo(
+                    methodName, dtoType + "." + prop.datatypeWithEnum, true,
+                    modelType + "." + prop.datatypeWithEnum, defaultVal, names));
+                sb.append("dto.").append(prop.name).append(".HasValue ? ")
+                  .append(methodName).append("(dto.").append(prop.name).append(".Value) : ").append(defaultVal);
+            } else if (prop.complexType != null && !prop.isContainer) {
+                sb.append(buildNestedObjectDtoToModel(prop, allModels));
+            } else if (prop.isContainer && prop.complexType != null) {
+                sb.append(buildCollectionDtoToModel(prop, allModels));
+            } else if (isNullableValueInModel(prop)) {
+                sb.append("dto.").append(prop.name).append(" ?? ").append(getZeroValue(prop));
+            } else {
+                sb.append("dto.").append(prop.name);
+            }
+            sb.append(",\n");
+        }
+        sb.append("        };");
+        return sb.toString();
+    }
+
+    /**
+     * Build the body of the static MapDomainToDto(modelClassName model) method.
+     * Returns new DtoType { Prop1 = model.Prop1, ... };
+     */
+    private String buildModelToDtoBody(CodegenModel model, String modelType, String dtoType,
+                                       List<ModelMap> allModels,
+                                       Map<String, EnumMappingInfo> enumMappings) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("        return new ").append(dtoType).append("\n        {\n");
+        for (CodegenProperty prop : model.getVars()) {
+            sb.append("            ").append(prop.name).append(" = ");
+            if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
+                List<String> names = getEnumNames(prop);
+                String defaultVal = names.isEmpty() ? "default" : dtoType + "." + prop.datatypeWithEnum + "." + names.get(0);
+                String methodName = "Map" + prop.name + "ModelToDto";
+                enumMappings.computeIfAbsent(prop.name + "_modelToDto", k -> new EnumMappingInfo(
+                    methodName, modelType + "." + prop.datatypeWithEnum, false,
+                    dtoType + "." + prop.datatypeWithEnum, defaultVal, names));
+                sb.append(methodName).append("(model.").append(prop.name).append(")");
+            } else if (prop.complexType != null && !prop.isContainer) {
+                sb.append(buildNestedObjectModelToDto(prop, allModels));
+            } else if (prop.isContainer && prop.complexType != null) {
+                sb.append(buildCollectionModelToDto(prop, allModels));
+            } else {
+                sb.append("model.").append(prop.name);
+            }
+            sb.append(",\n");
+        }
+        sb.append("        };");
+        return sb.toString();
+    }
+
+    /** DTO→Model for a single nested object property: dto.Prop != null ? new ModelType { ... } : null */
+    private String buildNestedObjectDtoToModel(CodegenProperty prop, List<ModelMap> allModels) {
+        CodegenModel nested = findModelByName(prop.complexType, allModels);
+        StringBuilder sb = new StringBuilder();
+        sb.append("dto.").append(prop.name).append(" != null ? new ").append(prop.complexType).append(" { ");
+        if (nested != null) {
+            List<CodegenProperty> vars = nested.getVars();
+            for (int i = 0; i < vars.size(); i++) {
+                CodegenProperty p = vars.get(i);
+                sb.append(p.name).append(" = dto.").append(prop.name).append(".").append(p.name);
+                if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                if (i < vars.size() - 1) sb.append(", ");
+            }
+        }
+        sb.append(" } : null");
+        return sb.toString();
+    }
+
+    /** DTO→Model for a collection property: dto.Prop?.Select(x => new ModelType { ... }).ToList() */
+    private String buildCollectionDtoToModel(CodegenProperty prop, List<ModelMap> allModels) {
+        CodegenModel nested = findModelByName(prop.complexType, allModels);
+        String iterVar = prop.complexType.substring(0, 1).toLowerCase();
+        StringBuilder sb = new StringBuilder();
+        sb.append("dto.").append(prop.name).append("?.Select(").append(iterVar).append(" => new ").append(prop.complexType).append(" { ");
+        if (nested != null) {
+            List<CodegenProperty> vars = nested.getVars();
+            for (int i = 0; i < vars.size(); i++) {
+                CodegenProperty p = vars.get(i);
+                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                if (i < vars.size() - 1) sb.append(", ");
+            }
+        }
+        sb.append(" }).ToList()");
+        return sb.toString();
+    }
+
+    /** Model→DTO for a single nested object property: model.Prop != null ? new DtoType { ... } : null */
+    private String buildNestedObjectModelToDto(CodegenProperty prop, List<ModelMap> allModels) {
+        CodegenModel nested = findModelByName(prop.complexType, allModels);
+        String nestedDtoType = prop.complexType + "Dto";
+        StringBuilder sb = new StringBuilder();
+        sb.append("model.").append(prop.name).append(" != null ? new ").append(nestedDtoType).append(" { ");
+        if (nested != null) {
+            List<CodegenProperty> vars = nested.getVars();
+            for (int i = 0; i < vars.size(); i++) {
+                CodegenProperty p = vars.get(i);
+                sb.append(p.name).append(" = model.").append(prop.name).append(".").append(p.name);
+                if (i < vars.size() - 1) sb.append(", ");
+            }
+        }
+        sb.append(" } : null");
+        return sb.toString();
+    }
+
+    /** Model→DTO for a collection property: model.Prop?.Select(x => new DtoType { ... }).ToList() */
+    private String buildCollectionModelToDto(CodegenProperty prop, List<ModelMap> allModels) {
+        CodegenModel nested = findModelByName(prop.complexType, allModels);
+        String nestedDtoType = prop.complexType + "Dto";
+        String iterVar = prop.complexType.substring(0, 1).toLowerCase();
+        StringBuilder sb = new StringBuilder();
+        sb.append("model.").append(prop.name).append("?.Select(").append(iterVar).append(" => new ").append(nestedDtoType).append(" { ");
+        if (nested != null) {
+            List<CodegenProperty> vars = nested.getVars();
+            for (int i = 0; i < vars.size(); i++) {
+                CodegenProperty p = vars.get(i);
+                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                if (i < vars.size() - 1) sb.append(", ");
+            }
+        }
+        sb.append(" }).ToList()");
+        return sb.toString();
+    }
+
+    /** Build a static enum switch expression method as a C# code string. */
+    private String buildEnumSwitchMethod(EnumMappingInfo m) {
+        StringBuilder sb = new StringBuilder();
+        String paramType = m.isSourceNullable ? m.sourceType + "?" : m.sourceType;
+        sb.append("    private static ").append(m.targetType).append(" ").append(m.methodName)
+          .append("(").append(paramType).append(" source)\n    {\n");
+        if (m.isSourceNullable) {
+            sb.append("        if (!source.HasValue) return ").append(m.defaultValue).append(";\n");
+            sb.append("        return source.Value switch\n        {\n");
+        } else {
+            sb.append("        return source switch\n        {\n");
+        }
+        for (String name : m.enumNames) {
+            sb.append("            ").append(m.sourceType).append(".").append(name)
+              .append(" => ").append(m.targetType).append(".").append(name).append(",\n");
+        }
+        sb.append("            _ => ").append(m.defaultValue).append(",\n");
+        sb.append("        };\n    }");
+        return sb.toString();
+    }
+
+    /**
+     * Extract the list of enum value names from a CodegenProperty's allowableValues.
+     * Returns e.g. ["AvailableEnum", "PendingEnum", "SoldEnum"].
+     */
+    @SuppressWarnings("unchecked")
+    private List<String> getEnumNames(CodegenProperty prop) {
+        List<String> names = new ArrayList<>();
+        if (prop.allowableValues == null) return names;
+        Object enumVarsObj = prop.allowableValues.get("enumVars");
+        if (!(enumVarsObj instanceof List)) return names;
+        for (Map<?, ?> enumVar : (List<Map<?, ?>>) enumVarsObj) {
+            Object name = enumVar.get("name");
+            if (name != null) names.add(name.toString());
+        }
+        return names;
+    }
+
+    /**
+     * True if the model property should be handled with null-coalescing when mapped from a nullable DTO field.
+     * Applies to non-required value types (struct types that cannot be null in the model).
+     */
+    private boolean isNullableValueInModel(CodegenProperty prop) {
+        if (prop.required || prop.dataType == null) return false;
+        String t = prop.dataType.replace("?", "");
+        return t.equals("long") || t.equals("int") || t.equals("double")
+            || t.equals("float") || t.equals("decimal") || t.equals("bool")
+            || t.equals("DateTime") || t.equals("DateTimeOffset")
+            || t.equals("Guid") || t.equals("TimeSpan");
+    }
+
+    /** Return the appropriate zero/default literal for a value-type property. */
+    private String getZeroValue(CodegenProperty prop) {
+        if (prop.dataType == null) return "default";
+        String t = prop.dataType.replace("?", "");
+        if (t.equals("bool")) return "false";
+        if (t.equals("DateTime") || t.equals("DateTimeOffset")
+                || t.equals("Guid") || t.equals("TimeSpan")) return "default";
+        return "0";
+    }
+
     /**
      * Load a template, render it with data, and write to disk.
      * 
