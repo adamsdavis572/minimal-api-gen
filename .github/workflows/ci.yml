@@ -10,7 +10,7 @@ jobs:
   test:
     name: Build & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     
     steps:
       - name: Checkout code
@@ -47,6 +47,9 @@ jobs:
       - name: Regression test (with NuGet packaging)
         run: devbox run task regress:full-petstore-validators-problemdetails-nuget
       
+      - name: Regression test (with NuGet packaging and JWT auth)
+        run: devbox run task regress:full-petstore-validators-problemdetails-nuget-auth
+      
       - name: Test summary
         if: always()
         run: |
@@ -55,4 +58,4 @@ jobs:
           echo "- ✅ Generator tests (template validation)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ xUnit tests (45 integration tests)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Bruno tests (27 API tests, 77 assertions)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Both single-project and NuGet packaging modes tested" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Single-project, NuGet packaging, and NuGet packaging with JWT auth modes tested" >> $GITHUB_STEP_SUMMARY
