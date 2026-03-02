@@ -497,6 +497,7 @@ Built on [OpenAPI Generator](https://github.com/OpenAPITools/openapi-generator) 
 ## Documentation
 
 - **[Configuration Reference](docs/CONFIGURATION.md)** - All 20+ generator options with examples
+- **[Adding Authentication & Authorization](docs/adding-auth.md)** - How to add auth to a generated API without modifying generated code (endpoint filter and custom extension approaches)
 - **[Petstore Test Infrastructure](docs/petstore-tests.md)** - How the test stubs, copy mechanism, and auth wiring work
 - **[Generated Code Structure](docs/generated-structure.md)** - Directory trees for each combination of generator flags
 - **[Docker Usage](docker/README.md)** - Building, distributing, and using the generator image
