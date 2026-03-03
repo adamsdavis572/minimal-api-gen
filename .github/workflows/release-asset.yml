@@ -3,6 +3,12 @@ name: Release Asset Upload
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to upload JAR to (e.g. v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   upload-jar:
@@ -16,7 +22,7 @@ jobs:
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || inputs.tag_name }}
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
@@ -42,7 +48,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} \
+          gh release upload ${{ github.event.release.tag_name || inputs.tag_name }} \
             ./generator/target/aspnet-minimalapi-openapi-generator.jar \
             --clobber
 
@@ -50,11 +56,11 @@ jobs:
         run: |
           echo "## 🚀 Generator JAR Uploaded to Release" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release**: ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release Name**: ${{ github.event.release.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release**: ${{ github.event.release.tag_name || inputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Name**: ${{ github.event.release.name || 'Manual Upload' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **JAR File**: aspnet-minimalapi-openapi-generator.jar" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release URL**: ${{ github.event.release.html_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: ${{ github.event.release.html_url || format('https://github.com/{0}/releases/tag/{1}', github.repository, inputs.tag_name) }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Download" >> $GITHUB_STEP_SUMMARY
           echo "The generator JAR is now available as a release asset." >> $GITHUB_STEP_SUMMARY
-          echo "Download it from the [release page](${{ github.event.release.html_url }})." >> $GITHUB_STEP_SUMMARY
+          echo "Download it from the [release page](${{ github.event.release.html_url || format('https://github.com/{0}/releases/tag/{1}', github.repository, inputs.tag_name) }})." >> $GITHUB_STEP_SUMMARY
