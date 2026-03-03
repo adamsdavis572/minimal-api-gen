@@ -141,8 +141,6 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // FluentValidation generates one validator file per tag (added after flags are parsed)
         if (useValidators && useMediatr) {
             apiTemplateFiles.put("validator.mustache", "Validators.cs");
-            // Also generate validators for each model with required properties
-            modelTemplateFiles.put("modelValidator.mustache", "Validator.cs");
         }
 
         super.processOpts();
