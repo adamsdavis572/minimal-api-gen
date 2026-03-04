@@ -70,3 +70,7 @@ TestResults/
 # Node modules (if any JavaScript tooling)
 node_modules/
 dist/
+
+
+alt-oas-gen/output
+.task/checksum/generator-build

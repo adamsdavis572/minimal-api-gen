@@ -1121,7 +1121,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         sb.append("        return new ").append(modelType).append("\n        {\n");
         for (CodegenProperty prop : model.getVars()) {
             sb.append("            ").append(prop.name).append(" = ");
-            if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
+            if (prop.isEnum && !prop.isContainer && prop.complexType != null) {
+                // $ref enum — cast directly, no switch method needed
+                sb.append("(").append(prop.complexType).append(")(").append("int)dto.").append(prop.name);
+            } else if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
                 List<String> names = getEnumNames(prop);
                 String defaultVal = names.isEmpty() ? "default" : modelType + "." + prop.datatypeWithEnum + "." + names.get(0);
                 String methodName = "Map" + prop.name + "DtoToModel";
@@ -1156,7 +1159,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         sb.append("        return new ").append(dtoType).append("\n        {\n");
         for (CodegenProperty prop : model.getVars()) {
             sb.append("            ").append(prop.name).append(" = ");
-            if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
+            if (prop.isEnum && !prop.isContainer && prop.complexType != null) {
+                // $ref enum — cast directly, no switch method needed
+                sb.append("(").append(prop.complexType).append("Dto)(").append("int)model.").append(prop.name);
+            } else if (prop.isEnum && !prop.isContainer && prop.complexType == null) {
                 List<String> names = getEnumNames(prop);
                 String defaultVal = names.isEmpty() ? "default" : dtoType + "." + prop.datatypeWithEnum + "." + names.get(0);
                 String methodName = "Map" + prop.name + "ModelToDto";
@@ -1205,8 +1211,28 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
-                if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                sb.append(p.name).append(" = ");
+                if (p.isEnum && !p.isContainer) {
+                    String modelEnumType = p.complexType != null ? p.complexType : p.datatypeWithEnum;
+                    sb.append("(").append(modelEnumType).append(")(").append("int)").append(iterVar).append(".").append(p.name);
+                } else if (p.complexType != null && !p.isContainer) {
+                    String nestedModelType2 = p.complexType;
+                    CodegenModel deepNested = findModelByName(p.complexType, allModels);
+                    sb.append(iterVar).append(".").append(p.name).append(" != null ? new ").append(nestedModelType2).append(" { ");
+                    if (deepNested != null) {
+                        List<CodegenProperty> deepVars = deepNested.getVars();
+                        for (int j = 0; j < deepVars.size(); j++) {
+                            CodegenProperty dp = deepVars.get(j);
+                            sb.append(dp.name).append(" = ").append(iterVar).append(".").append(p.name).append(".").append(dp.name);
+                            if (isNullableValueInModel(dp)) sb.append(" ?? ").append(getZeroValue(dp));
+                            if (j < deepVars.size() - 1) sb.append(", ");
+                        }
+                    }
+                    sb.append(" } : new ").append(nestedModelType2).append("()");
+                } else {
+                    sb.append(iterVar).append(".").append(p.name);
+                    if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }
@@ -1243,7 +1269,26 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                sb.append(p.name).append(" = ");
+                if (p.isEnum && !p.isContainer) {
+                    String dtoEnumType = p.complexType != null ? p.complexType + "Dto" : p.datatypeWithEnum;
+                    sb.append("(").append(dtoEnumType).append(")(").append("int)").append(iterVar).append(".").append(p.name);
+                } else if (p.complexType != null && !p.isContainer) {
+                    String nestedDtoType2 = p.complexType + "Dto";
+                    CodegenModel deepNested = findModelByName(p.complexType, allModels);
+                    sb.append(iterVar).append(".").append(p.name).append(" != null ? new ").append(nestedDtoType2).append(" { ");
+                    if (deepNested != null) {
+                        List<CodegenProperty> deepVars = deepNested.getVars();
+                        for (int j = 0; j < deepVars.size(); j++) {
+                            CodegenProperty dp = deepVars.get(j);
+                            sb.append(dp.name).append(" = ").append(iterVar).append(".").append(p.name).append(".").append(dp.name);
+                            if (j < deepVars.size() - 1) sb.append(", ");
+                        }
+                    }
+                    sb.append(" } : new ").append(nestedDtoType2).append("()");
+                } else {
+                    sb.append(iterVar).append(".").append(p.name);
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }

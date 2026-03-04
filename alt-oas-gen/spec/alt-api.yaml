@@ -1,0 +1,712 @@
+openapi: 3.0.0
+info:
+  title: Alternative API
+  description: >-
+    A secondary OpenAPI spec used to exercise the minimal-api-gen generator
+    across areas not covered by the Petstore spec (e.g. different schema
+    shapes, response envelopes, nullable references, file uploads, array
+    body payloads, deeply nested objects).
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: 'https://www.apache.org/licenses/LICENSE-2.0.html'
+
+tags:
+  - name: items
+    description: Item catalogue operations
+  - name: orders
+    description: Order management operations
+  - name: reports
+    description: Reporting and analytics
+
+paths:
+  /items:
+    get:
+      tags: [items]
+      operationId: listItems
+      summary: List all items with optional filtering
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ItemCategory'
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPage'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    post:
+      tags: [items]
+      operationId: createItem
+      summary: Create a new item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Item with this SKU already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /items/{itemId}:
+    get:
+      tags: [items]
+      operationId: getItemById
+      summary: Retrieve a single item by ID
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '404':
+          description: Item not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags: [items]
+      operationId: updateItem
+      summary: Replace an item record
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItemRequest'
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Item not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    delete:
+      tags: [items]
+      operationId: deleteItem
+      summary: Delete an item
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Item deleted
+        '404':
+          description: Item not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /items/{itemId}/image:
+    post:
+      tags: [items]
+      operationId: uploadItemImage
+      summary: Upload an image for an item (multipart/form-data)
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                altText:
+                  type: string
+                  nullable: true
+              required:
+                - file
+      responses:
+        '200':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemImage'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Item not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /orders:
+    post:
+      tags: [orders]
+      operationId: placeOrder
+      summary: Submit a new order (array body)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+      responses:
+        '201':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Insufficient stock
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /orders/{orderId}:
+    get:
+      tags: [orders]
+      operationId: getOrderById
+      summary: Get order by ID
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags: [orders]
+      operationId: updateOrderStatus
+      summary: Update the status of an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid status transition
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Order not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /reports/summary:
+    get:
+      tags: [reports]
+      operationId: getSummaryReport
+      summary: Get a top-level summary report (nullable fields, nested objects)
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Summary report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryReport'
+
+components:
+  schemas:
+    # ── Enums ──────────────────────────────────────────────────────────────────
+
+    ItemCategory:
+      type: string
+      enum:
+        - Electronics
+        - Clothing
+        - Food
+        - Books
+        - Other
+
+    OrderStatus:
+      type: string
+      enum:
+        - Pending
+        - Confirmed
+        - Shipped
+        - Delivered
+        - Cancelled
+
+    # ── Value Objects & Sub-schemas ────────────────────────────────────────────
+
+    Money:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+
+    Address:
+      type: object
+      required:
+        - line1
+        - city
+        - country
+      properties:
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          type: string
+          nullable: true
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postCode:
+          type: string
+          nullable: true
+          maxLength: 20
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          example: US
+
+    # ── Item schemas ───────────────────────────────────────────────────────────
+
+    Item:
+      type: object
+      required:
+        - id
+        - sku
+        - name
+        - category
+        - price
+        - stockQuantity
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 50
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        price:
+          $ref: '#/components/schemas/Money'
+        stockQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+        tags:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        image:
+          $ref: '#/components/schemas/ItemImage'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ItemImage:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+        altText:
+          type: string
+          nullable: true
+
+    ItemPage:
+      type: object
+      required:
+        - items
+        - totalCount
+        - page
+        - pageSize
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        totalCount:
+          type: integer
+          format: int64
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        hasNextPage:
+          type: boolean
+
+    CreateItemRequest:
+      type: object
+      required:
+        - sku
+        - name
+        - category
+        - price
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 50
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        price:
+          $ref: '#/components/schemas/Money'
+        stockQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+        tags:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+
+    UpdateItemRequest:
+      type: object
+      required:
+        - name
+        - category
+        - price
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        price:
+          $ref: '#/components/schemas/Money'
+        stockQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+        tags:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+
+    # ── Order schemas ──────────────────────────────────────────────────────────
+
+    OrderLine:
+      type: object
+      required:
+        - itemId
+        - quantity
+        - unitPrice
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+
+    PlaceOrderRequest:
+      type: object
+      required:
+        - lines
+        - shippingAddress
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderLine'
+          minItems: 1
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+        notes:
+          type: string
+          nullable: true
+          maxLength: 500
+
+    Order:
+      type: object
+      required:
+        - id
+        - status
+        - lines
+        - shippingAddress
+        - total
+        - placedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        shippingAddress:
+          $ref: '#/components/schemas/Address'
+        total:
+          $ref: '#/components/schemas/Money'
+        notes:
+          type: string
+          nullable: true
+        placedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdateOrderStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+
+    # ── Report schemas ─────────────────────────────────────────────────────────
+
+    CategoryBreakdown:
+      type: object
+      required:
+        - category
+        - itemCount
+        - totalRevenue
+      properties:
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        itemCount:
+          type: integer
+          format: int64
+        totalRevenue:
+          $ref: '#/components/schemas/Money'
+
+    SummaryReport:
+      type: object
+      required:
+        - totalOrders
+        - totalRevenue
+        - categoryBreakdown
+        - generatedAt
+      properties:
+        totalOrders:
+          type: integer
+          format: int64
+        totalRevenue:
+          $ref: '#/components/schemas/Money'
+        averageOrderValue:
+          $ref: '#/components/schemas/Money'
+          nullable: true
+        categoryBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryBreakdown'
+        generatedAt:
+          type: string
+          format: date-time
+
+    # ── Shared ─────────────────────────────────────────────────────────────────
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
