@@ -57,9 +57,15 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
 {{/isString}}
 {{#isEnum}}
         // Enum validation
+{{^complexType}}
         RuleFor(x => x.{{name}})
             .Must(value => value == null || Enum.IsDefined(typeof({{classname}}.{{datatypeWithEnum}}), value.Value))
             .WithMessage("{{name}} must be a valid enum value");
+{{/complexType}}
+{{#complexType}}
+        RuleFor(x => x.{{name}})
+            .IsInEnum();
+{{/complexType}}
 {{/isEnum}}
 {{#isNumeric}}
 {{#minimum}}
@@ -101,10 +107,12 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
 {{/isArray}}
 {{#complexType}}
 {{^isArray}}
+{{^isEnum}}
         // Nested object validation
         RuleFor(x => x.{{name}})
             .SetValidator(new {{dataType}}Validator())
             .When(x => x.{{name}} != null);
+{{/isEnum}}
 {{/isArray}}
 {{#isArray}}
         // TODO: Nested array validation requires proper DTO type mapping

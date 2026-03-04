@@ -174,6 +174,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
 
         supportingFiles.add(new SupportingFile("program.mustache", packageFolder, "Program.cs"));
         
+        // Bug 2/8: FileDto for binary file download responses (replaces System.IO.StreamDto)
+        String dtosFolder = generatedFolder + File.separator + "DTOs";
+        supportingFiles.add(new SupportingFile("fileDto.mustache", dtosFolder, "FileDto.cs"));
+
         // Enum converter that supports JsonPropertyName attributes
         // For NuGet packaging: Converters go to Contract/ (they serialize DTOs)
         String convertersFolder = useNugetPackaging ? 
@@ -565,6 +569,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             }
         }
 
+        // Bug 1: Compute camelCase route path for ALL operations.
+        // Hyphenated path parameters (e.g. {widget-id}) are not valid C# lambda binding names.
+        operation.vendorExtensions.put("x-route-path", convertPathParamsToCamelCase(operation.path));
+
         // Add MediatR-specific vendor extensions for template generation
         if (useMediatr) {
             String mediatrResponseType = getMediatrResponseType(operation);
@@ -588,6 +596,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             // Mark POST operations for Created (201) response
             boolean isPost = "POST".equalsIgnoreCase(operation.httpMethod);
             operation.vendorExtensions.put("x-is-post-operation", isPost);
+            
+            // For POST operations, also set the camelCase path for use in Results.Created() URI
+            if (isPost) {
+                operation.vendorExtensions.put("x-created-path", convertPathParamsToCamelCase(operation.path));
+            }
             
             // Mark DELETE operations that return bool (success/failure indicator)
             boolean isDeleteWithBool = "DELETE".equalsIgnoreCase(operation.httpMethod) && 
@@ -1131,7 +1144,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 sb.append("dto.").append(prop.name).append(".HasValue ? ")
                   .append(methodName).append("(dto.").append(prop.name).append(".Value) : ").append(defaultVal);
             } else if (prop.complexType != null && !prop.isContainer) {
-                sb.append(buildNestedObjectDtoToModel(prop, allModels));
+                // Bug 12: referenced enum types must be cast, not constructed via object initializer
+                CodegenModel nestedModel = findModelByName(prop.complexType, allModels);
+                if (nestedModel != null && nestedModel.isEnum) {
+                    sb.append("(").append(prop.complexType).append(")(int)dto.").append(prop.name);
+                } else {
+                    sb.append(buildNestedObjectDtoToModel(prop, allModels));
+                }
             } else if (prop.isContainer && prop.complexType != null) {
                 sb.append(buildCollectionDtoToModel(prop, allModels));
             } else if (isNullableValueInModel(prop)) {
@@ -1165,7 +1184,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                     dtoType + "." + prop.datatypeWithEnum, defaultVal, names));
                 sb.append(methodName).append("(model.").append(prop.name).append(")");
             } else if (prop.complexType != null && !prop.isContainer) {
-                sb.append(buildNestedObjectModelToDto(prop, allModels));
+                // Bug 10: referenced enum types must be cast, not constructed via object initializer
+                CodegenModel nestedModel = findModelByName(prop.complexType, allModels);
+                if (nestedModel != null && nestedModel.isEnum) {
+                    sb.append("(").append(prop.complexType).append("Dto)(int)model.").append(prop.name);
+                } else {
+                    sb.append(buildNestedObjectModelToDto(prop, allModels));
+                }
             } else if (prop.isContainer && prop.complexType != null) {
                 sb.append(buildCollectionModelToDto(prop, allModels));
             } else {
@@ -1205,8 +1230,32 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
-                if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                // Bug 9: handle enum and recursive-collection properties inside inline Select lambdas
+                if (p.isContainer && p.complexType != null) {
+                    // Recursive/nested collection: cannot inline-map, set to null
+                    sb.append(p.name).append(" = null");
+                } else if (p.complexType != null && !p.isContainer) {
+                    CodegenModel innerModel = findModelByName(p.complexType, allModels);
+                    if (innerModel != null && innerModel.isEnum) {
+                        // Referenced enum: cast from DTO enum type to model enum type
+                        sb.append(p.name).append(" = (").append(p.complexType).append(")(int)").append(iterVar).append(".").append(p.name);
+                    } else {
+                        sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                    }
+                } else if (p.isEnum && !p.isContainer && p.complexType == null) {
+                    // Inline enum: source is a DTO enum (nullable if not required), target is model enum (non-nullable)
+                    if (!p.required) {
+                        sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name)
+                          .append(".HasValue ? (").append(prop.complexType).append(".").append(p.datatypeWithEnum).append(")(int)")
+                          .append(iterVar).append(".").append(p.name).append(".Value : default");
+                    } else {
+                        sb.append(p.name).append(" = (").append(prop.complexType).append(".").append(p.datatypeWithEnum).append(")(int)")
+                          .append(iterVar).append(".").append(p.name);
+                    }
+                } else {
+                    sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                    if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }
@@ -1243,7 +1292,25 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                // Bug 9: handle enum and recursive-collection properties inside inline Select lambdas
+                if (p.isContainer && p.complexType != null) {
+                    // Recursive/nested collection: cannot inline-map, set to null
+                    sb.append(p.name).append(" = null");
+                } else if (p.complexType != null && !p.isContainer) {
+                    CodegenModel innerModel = findModelByName(p.complexType, allModels);
+                    if (innerModel != null && innerModel.isEnum) {
+                        // Referenced enum: cast from model enum type to DTO enum type
+                        sb.append(p.name).append(" = (").append(p.complexType).append("Dto)(int)").append(iterVar).append(".").append(p.name);
+                    } else {
+                        sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                    }
+                } else if (p.isEnum && !p.isContainer && p.complexType == null) {
+                    // Inline enum: source is model enum (non-nullable), target is DTO enum (nullable if not required)
+                    sb.append(p.name).append(" = (").append(nestedDtoType).append(".").append(p.datatypeWithEnum).append(")(int)")
+                      .append(iterVar).append(".").append(p.name);
+                } else {
+                    sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }
@@ -1427,6 +1494,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Single object response - convert Model to DTO
         String dtoType = operation.returnType;
         
+        // Bug 2/8: Binary/stream responses map to FileDto (System.IO.Stream is not a DTO type)
+        if (dtoType.startsWith("System.IO.Stream") || "byte[]".equals(dtoType)) {
+            return "FileDto";
+        }
+        
         // Primitive types (int, string, bool, etc.) don't need Dto suffix
         if (isPrimitiveType(dtoType)) {
             return dtoType;
@@ -1514,5 +1586,45 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         // Append "Handler" to the request class name
         // e.g., "AddPetCommand" -> "AddPetCommandHandler"
         return requestClassName + "Handler";
+    }
+
+    /**
+     * Bug 1: Convert hyphenated path parameters to camelCase so they are valid C# interpolation identifiers.
+     * e.g. "/widget/{widget-id}/subwidgets" -> "/widget/{widgetId}/subwidgets"
+     */
+    private String convertPathParamsToCamelCase(String path) {
+        if (path == null) return path;
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        while (i < path.length()) {
+            if (path.charAt(i) == '{') {
+                int end = path.indexOf('}', i);
+                if (end == -1) { result.append(path.charAt(i++)); continue; }
+                String paramName = path.substring(i + 1, end);
+                result.append('{').append(kebabToCamelCase(paramName)).append('}');
+                i = end + 1;
+            } else {
+                result.append(path.charAt(i++));
+            }
+        }
+        return result.toString();
+    }
+
+    /** Convert a kebab-case identifier to camelCase. e.g. "widget-id" -> "widgetId" */
+    private String kebabToCamelCase(String kebab) {
+        if (kebab == null || !kebab.contains("-")) return kebab;
+        StringBuilder sb = new StringBuilder();
+        boolean capitalizeNext = false;
+        for (char c : kebab.toCharArray()) {
+            if (c == '-') {
+                capitalizeNext = true;
+            } else if (capitalizeNext) {
+                sb.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }
