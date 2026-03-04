@@ -1243,7 +1243,9 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                         sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name);
                     }
                 } else if (p.isEnum && !p.isContainer && p.complexType == null) {
-                    // Inline enum: source is a DTO enum (nullable if not required), target is model enum (non-nullable)
+                    // Inline enum: source is a DTO item enum (nullable if not required), target is model enum (non-nullable).
+                    // prop.complexType is the model type being constructed (e.g. "Widget"), so the model enum type
+                    // is prop.complexType + "." + p.datatypeWithEnum (e.g. "Widget.StatusEnum").
                     if (!p.required) {
                         sb.append(p.name).append(" = ").append(iterVar).append(".").append(p.name)
                           .append(".HasValue ? (").append(prop.complexType).append(".").append(p.datatypeWithEnum).append(")(int)")
@@ -1591,6 +1593,7 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
     /**
      * Bug 1: Convert hyphenated path parameters to camelCase so they are valid C# interpolation identifiers.
      * e.g. "/widget/{widget-id}/subwidgets" -> "/widget/{widgetId}/subwidgets"
+     * Non-hyphenated parameters (camelCase, PascalCase, etc.) pass through unchanged.
      */
     private String convertPathParamsToCamelCase(String path) {
         if (path == null) return path;
@@ -1599,7 +1602,11 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         while (i < path.length()) {
             if (path.charAt(i) == '{') {
                 int end = path.indexOf('}', i);
-                if (end == -1) { result.append(path.charAt(i++)); continue; }
+                if (end == -1) {
+                    LOGGER.warn("Malformed path template — unclosed '{{' in: {}", path);
+                    result.append(path.charAt(i++));
+                    continue;
+                }
                 String paramName = path.substring(i + 1, end);
                 result.append('{').append(kebabToCamelCase(paramName)).append('}');
                 i = end + 1;
@@ -1610,7 +1617,10 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         return result.toString();
     }
 
-    /** Convert a kebab-case identifier to camelCase. e.g. "widget-id" -> "widgetId" */
+    /**
+     * Convert a kebab-case identifier to camelCase. e.g. "widget-id" -> "widgetId"
+     * Non-hyphenated inputs are returned unchanged.
+     */
     private String kebabToCamelCase(String kebab) {
         if (kebab == null || !kebab.contains("-")) return kebab;
         StringBuilder sb = new StringBuilder();
