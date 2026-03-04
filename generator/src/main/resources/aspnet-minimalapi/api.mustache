@@ -23,8 +23,8 @@ public static class {{{classname}}}Endpoints
     {
         {{#operation}}
         {{^hasFormParams}}
-        // {{{httpMethod}}} {{{path}}}{{#summary}} - {{{summary}}}{{/summary}}
-        group.Map{{{httpMethod}}}("{{{path}}}", async ({{#useMediatr}}IMediator mediator{{#vendorExtensions.hasComplexQueryParam}}, HttpContext httpContext{{/vendorExtensions.hasComplexQueryParam}}{{/useMediatr}}{{^useMediatr}}HttpContext httpContext{{/useMediatr}}{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}{{/isBodyParam}}{{^isBodyParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isBodyParam}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
+        // {{{httpMethod}}} {{{vendorExtensions.x-route-path}}}{{#summary}} - {{{summary}}}{{/summary}}
+        group.Map{{{httpMethod}}}("{{{vendorExtensions.x-route-path}}}", async ({{#useMediatr}}IMediator mediator{{#vendorExtensions.hasComplexQueryParam}}, HttpContext httpContext{{/vendorExtensions.hasComplexQueryParam}}{{/useMediatr}}{{^useMediatr}}HttpContext httpContext{{/useMediatr}}{{#allParams}}{{^isFormParam}}{{^vendorExtensions.x-is-complex-query-param}}, {{#isHeaderParam}}[FromHeader] {{/isHeaderParam}}{{#isQueryParam}}{{^isModel}}[FromQuery] {{/isModel}}{{/isQueryParam}}{{#isBodyParam}}[FromBody] {{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}{{/isBodyParam}}{{^isBodyParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isBodyParam}} {{{paramName}}}{{#hasValidation}}{{#isBodyParam}}, IValidator<{{#vendorExtensions.dtoType}}{{{vendorExtensions.dtoType}}}{{/vendorExtensions.dtoType}}{{^vendorExtensions.dtoType}}{{{dataType}}}{{/vendorExtensions.dtoType}}> validator{{/isBodyParam}}{{/hasValidation}}{{/vendorExtensions.x-is-complex-query-param}}{{/isFormParam}}{{/allParams}}) =>
         {
             {{^bodyParam}}
             {{#allParams}}
@@ -112,7 +112,7 @@ public static class {{{classname}}}Endpoints
             {{^vendorExtensions.x-is-delete-with-bool}}
             if (result == null) return Results.NotFound();
             {{#vendorExtensions.x-is-post-operation}}
-            return Results.Created($"{{basePathWithoutHost}}{{path}}", result);
+            return Results.Created($"{{basePathWithoutHost}}{{{vendorExtensions.x-created-path}}}", result);
             {{/vendorExtensions.x-is-post-operation}}
             {{^vendorExtensions.x-is-post-operation}}
             return Results.Ok(result);

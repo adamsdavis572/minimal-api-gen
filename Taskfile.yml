@@ -121,6 +121,9 @@ tasks:
       - cp {{.TEST_HANDLERS_DIR}}/LoginUserQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/PlaceOrderCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/UploadFileCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/CreateSubwidgetCommandHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/ExportWidgetQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
+      - cp {{.TEST_HANDLERS_DIR}}/ListWidgetsQueryHandler.Impl.cs {{.OUTPUT_HANDLERS_DIR}}/
       - cp {{.TEST_HANDLERS_DIR}}/InMemoryPetStore.cs {{.OUTPUT_SERVICES_DIR}}/
       - echo "✓ Test handlers copied successfully"
       - echo "Copying PermissionEndpointFilter..."
