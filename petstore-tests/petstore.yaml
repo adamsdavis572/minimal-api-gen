@@ -17,6 +17,8 @@ tags:
     description: Access to Petstore orders
   - name: user
     description: Operations about user
+  - name: widget
+    description: Widget management
 paths:
   /test:
     get:
@@ -608,6 +610,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TestNullable'
+  /widget:
+    get:
+      tags:
+        - widget
+      summary: List widgets
+      operationId: listWidgets
+      parameters:
+        - name: widgetType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/WidgetType'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WidgetCollection'
+  '/widget/{widget-id}/subwidgets':
+    post:
+      tags:
+        - widget
+      summary: Create a subwidget under a widget
+      operationId: createSubwidget
+      parameters:
+        - name: widget-id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Widget'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Widget'
+  '/widget/{widget-id}/export':
+    get:
+      tags:
+        - widget
+      summary: Export widget as binary
+      operationId: exportWidget
+      parameters:
+        - name: widget-id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
 externalDocs:
   description: Find out more about Swagger
   url: 'http://swagger.io'
@@ -830,3 +896,43 @@ components:
         color:
           type: string
           default: red
+    WidgetType:
+      type: string
+      enum:
+        - basic
+        - advanced
+        - unknown
+    Widget:
+      type: object
+      required:
+        - name
+        - widgetType
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        widgetType:
+          $ref: '#/components/schemas/WidgetType'
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - archived
+        children:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Widget'
+    WidgetCollection:
+      type: object
+      properties:
+        nextLink:
+          type: string
+          nullable: true
+        items:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Widget'
