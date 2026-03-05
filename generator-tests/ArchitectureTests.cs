@@ -26,7 +26,9 @@ public class ArchitectureTests
     /// </summary>
     [Theory]
     [InlineData("endpointMapper.mustache", "Endpoints")]
+    [InlineData("api.mustache", "Endpoints")]
     [InlineData("command.mustache", "Commands")]
+    [InlineData("query.mustache", "Queries")]
     [InlineData("dto.mustache", "DTOs")]
     [InlineData("dtoValidator.mustache", "Validators")]
     public void ContractPackageTemplates_MustNotReferenceModelsOrHandlers(string templateName, string componentType)
@@ -125,6 +127,7 @@ public class ArchitectureTests
     /// </summary>
     [Theory]
     [InlineData("command.mustache")]
+    [InlineData("query.mustache")]
     public void CommandQueryTemplates_ShouldNotReferenceModels(string templateName)
     {
         // Arrange

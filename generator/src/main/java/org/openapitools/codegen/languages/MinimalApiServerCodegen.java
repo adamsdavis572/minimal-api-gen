@@ -524,9 +524,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 if (param.isQueryParam && param.isContainer && param.isArray) {
                     // Change List<string> to string[], List<int> to int[], etc.
                     String innerType = param.items != null ? param.items.dataType : "string";
-                    param.dataType = innerType + "[]";
-                    LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility", 
-                        param.paramName, innerType, innerType);
+                    // FR-027: Array $ref enum/model params must use Dto type so Contracts layer never references Models.
+                    // Use complexType != null as the discriminator: set only for $ref types (named schema enum/model),
+                    // NOT for inline enums (e.g. string items with enum: [...]) or plain primitives.
+                    boolean innerIsRefType = param.items != null && param.items.complexType != null;
+                    String resolvedInnerType = innerIsRefType ? innerType + "Dto" : innerType;
+                    param.dataType = resolvedInnerType + "[]";
+                    LOGGER.info("Converted query array parameter '{}' from List<{}> to {}[] for Minimal API compatibility",
+                        param.paramName, innerType, resolvedInnerType);
                 }
                 // Mark model-type query parameters for special handling (complex JSON deserialization)
                 if (param.isQueryParam && param.isModel) {
@@ -551,7 +556,12 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             for (CodegenParameter param : operation.queryParams) {
                 if (param.isContainer && param.isArray) {
                     String innerType = param.items != null ? param.items.dataType : "string";
-                    param.dataType = innerType + "[]";
+                    // FR-027: Array $ref enum/model params must use Dto type so Contracts layer never references Models.
+                    // Use complexType != null as the discriminator: set only for $ref types (named schema enum/model),
+                    // NOT for inline enums (e.g. string items with enum: [...]) or plain primitives.
+                    boolean innerIsRefType = param.items != null && param.items.complexType != null;
+                    String resolvedInnerType = innerIsRefType ? innerType + "Dto" : innerType;
+                    param.dataType = resolvedInnerType + "[]";
                 }
                 // FR-027: Convert Model types to DTO types for query parameters (Contract-First CQRS)
                 // Don't convert array/collection types (they contain primitive or already-converted types)
@@ -1105,6 +1115,27 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
         for (EnumMappingInfo m : modelToDtoEnumMappings.values()) {
             enumMethods.append("\n").append(buildEnumSwitchMethod(m));
         }
+
+        // --- Array enum query params: Dto[] → Model[] conversion helpers ---
+        // Handlers own the DTO-to-Model mapping; these helpers keep the Contracts layer
+        // (Queries/Commands) free of any Models references (FR-027).
+        Set<String> arrayEnumHelpersSeen = new HashSet<>();
+        if (operation.queryParams != null) {
+            for (CodegenParameter param : operation.queryParams) {
+                if (param.isContainer && param.isArray && param.items != null
+                        && param.items.complexType != null) {
+                    String innerType = param.items.dataType;
+                    if (arrayEnumHelpersSeen.add(innerType)) {
+                        String capitalizedInner = Character.toUpperCase(innerType.charAt(0)) + innerType.substring(1);
+                        String methodName = "Map" + capitalizedInner + "DtoArrayToModel";
+                        enumMethods.append("\n    private static ").append(innerType).append("[]? ")
+                            .append(methodName).append("(").append(innerType).append("Dto[]? dtos)")
+                            .append("\n        => dtos?.Select(d => (").append(innerType).append(")(int)d).ToArray();\n");
+                    }
+                }
+            }
+        }
+
         if (enumMethods.length() > 0) {
             data.put("enumMappingMethods", enumMethods.toString());
             data.put("hasEnumMappingMethods", Boolean.TRUE);
@@ -1579,6 +1610,12 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                baseType.equals("decimal") ||
                baseType.equals("bool") ||
                baseType.equals("string") ||
+               baseType.equals("String") ||   // Java-style uppercase from OpenAPI generator internals
+               baseType.equals("Integer") ||
+               baseType.equals("Long") ||
+               baseType.equals("Float") ||
+               baseType.equals("Double") ||
+               baseType.equals("Boolean") ||
                baseType.equals("byte") ||
                baseType.equals("short") ||
                baseType.equals("char") ||
