@@ -614,6 +614,20 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             LOGGER.info("Added MediatR vendor extensions for operation '{}': type={}, response={}", 
                 operation.operationId, isQuery ? "Query" : "Command", mediatrResponseType);
         }
+
+        // BUG-001: Build a clean path for C# string interpolations.
+        // OpenAPI path params may use kebab-case (e.g. {object-id}) which is invalid
+        // inside a C# $"..." interpolation hole.  Replace each {baseName} placeholder
+        // with the sanitised C# camelCase paramName (e.g. {objectId}).
+        String cleanPath = operation.path;
+        if (operation.pathParams != null) {
+            for (CodegenParameter param : operation.pathParams) {
+                if (!param.baseName.equals(param.paramName)) {
+                    cleanPath = cleanPath.replace("{" + param.baseName + "}", "{" + param.paramName + "}");
+                }
+            }
+        }
+        operation.vendorExtensions.put("cleanPath", cleanPath);
     }
     
     @Override
@@ -1131,8 +1145,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 enumMappings.computeIfAbsent(prop.name + "_dtoToModel", k -> new EnumMappingInfo(
                     methodName, dtoType + "." + prop.datatypeWithEnum, true,
                     modelType + "." + prop.datatypeWithEnum, defaultVal, names));
-                sb.append("dto.").append(prop.name).append(".HasValue ? ")
-                  .append(methodName).append("(dto.").append(prop.name).append(".Value) : ").append(defaultVal);
+                if (prop.required) {
+                    // BUG-006: Non-nullable enum — call the mapper directly (C# allows T -> T? coercion)
+                    sb.append(methodName).append("(dto.").append(prop.name).append(")");
+                } else {
+                    sb.append("dto.").append(prop.name).append(".HasValue ? ")
+                      .append(methodName).append("(dto.").append(prop.name).append(".Value) : ").append(defaultVal);
+                }
             } else if (prop.complexType != null && !prop.isContainer) {
                 sb.append(buildNestedObjectDtoToModel(prop, allModels));
             } else if (prop.isContainer && prop.complexType != null) {
@@ -1192,8 +1211,14 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = dto.").append(prop.name).append(".").append(p.name);
-                if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                sb.append(p.name).append(" = ");
+                if (p.isContainer && p.complexType != null) {
+                    // nested list inside a nested object — emit null stub
+                    sb.append("null");
+                } else {
+                    sb.append("dto.").append(prop.name).append(".").append(p.name);
+                    if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }
@@ -1213,7 +1238,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 CodegenProperty p = vars.get(i);
                 sb.append(p.name).append(" = ");
                 if (p.isEnum && !p.isContainer) {
-                    String modelEnumType = p.complexType != null ? p.complexType : p.datatypeWithEnum;
+                    // BUG-005: qualify inline enum with enclosing model type
+                    String modelEnumType = p.complexType != null ? p.complexType : prop.complexType + "." + p.datatypeWithEnum;
                     sb.append("(").append(modelEnumType).append(")(").append("int)").append(iterVar).append(".").append(p.name);
                 } else if (p.complexType != null && !p.isContainer) {
                     String nestedModelType2 = p.complexType;
@@ -1223,12 +1249,20 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                         List<CodegenProperty> deepVars = deepNested.getVars();
                         for (int j = 0; j < deepVars.size(); j++) {
                             CodegenProperty dp = deepVars.get(j);
-                            sb.append(dp.name).append(" = ").append(iterVar).append(".").append(p.name).append(".").append(dp.name);
-                            if (isNullableValueInModel(dp)) sb.append(" ?? ").append(getZeroValue(dp));
+                            sb.append(dp.name).append(" = ");
+                            if (dp.isContainer && dp.complexType != null) {
+                                sb.append("null"); // null stub for deep nested list
+                            } else {
+                                sb.append(iterVar).append(".").append(p.name).append(".").append(dp.name);
+                                if (isNullableValueInModel(dp)) sb.append(" ?? ").append(getZeroValue(dp));
+                            }
                             if (j < deepVars.size() - 1) sb.append(", ");
                         }
                     }
                     sb.append(" } : new ").append(nestedModelType2).append("()");
+                } else if (p.isContainer) {
+                    // BUG-004/007: nested collection — emit null stub; Impl uses MapRecursive
+                    sb.append("null");
                 } else {
                     sb.append(iterVar).append(".").append(p.name);
                     if (isNullableValueInModel(p)) sb.append(" ?? ").append(getZeroValue(p));
@@ -1250,7 +1284,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             List<CodegenProperty> vars = nested.getVars();
             for (int i = 0; i < vars.size(); i++) {
                 CodegenProperty p = vars.get(i);
-                sb.append(p.name).append(" = model.").append(prop.name).append(".").append(p.name);
+                sb.append(p.name).append(" = ");
+                if (p.isContainer && p.complexType != null) {
+                    // nested list inside a nested object — emit null stub
+                    sb.append("null");
+                } else {
+                    sb.append("model.").append(prop.name).append(".").append(p.name);
+                }
                 if (i < vars.size() - 1) sb.append(", ");
             }
         }
@@ -1271,7 +1311,8 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                 CodegenProperty p = vars.get(i);
                 sb.append(p.name).append(" = ");
                 if (p.isEnum && !p.isContainer) {
-                    String dtoEnumType = p.complexType != null ? p.complexType + "Dto" : p.datatypeWithEnum;
+                    // BUG-005: qualify inline enum with enclosing DTO type
+                    String dtoEnumType = p.complexType != null ? p.complexType + "Dto" : nestedDtoType + "." + p.datatypeWithEnum;
                     sb.append("(").append(dtoEnumType).append(")(").append("int)").append(iterVar).append(".").append(p.name);
                 } else if (p.complexType != null && !p.isContainer) {
                     String nestedDtoType2 = p.complexType + "Dto";
@@ -1281,11 +1322,19 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
                         List<CodegenProperty> deepVars = deepNested.getVars();
                         for (int j = 0; j < deepVars.size(); j++) {
                             CodegenProperty dp = deepVars.get(j);
-                            sb.append(dp.name).append(" = ").append(iterVar).append(".").append(p.name).append(".").append(dp.name);
+                            sb.append(dp.name).append(" = ");
+                            if (dp.isContainer && dp.complexType != null) {
+                                sb.append("null"); // null stub for deep nested list
+                            } else {
+                                sb.append(iterVar).append(".").append(p.name).append(".").append(dp.name);
+                            }
                             if (j < deepVars.size() - 1) sb.append(", ");
                         }
                     }
                     sb.append(" } : new ").append(nestedDtoType2).append("()");
+                } else if (p.isContainer) {
+                    // BUG-004/007: nested collection — emit null stub; Impl uses MapRecursive
+                    sb.append("null");
                 } else {
                     sb.append(iterVar).append(".").append(p.name);
                 }
@@ -1415,7 +1464,13 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             // Array responses use IEnumerable<T>
             return "IEnumerable<" + operation.returnBaseType + ">";
         }
-        
+
+        // BUG-002: binary/stream responses map to FileDto
+        if ("System.IO.Stream".equals(operation.returnType) ||
+                (operation.returnType != null && operation.returnType.startsWith("System.IO."))) {
+            return "FileDto";
+        }
+
         // Direct model type or primitive
         return operation.returnType;
     }
@@ -1468,10 +1523,16 @@ public class MinimalApiServerCodegen extends AbstractCSharpCodegen implements Co
             // For Dictionary and other generic types, return as-is
             return operation.returnType;
         }
-        
+
         // Single object response - convert Model to DTO
         String dtoType = operation.returnType;
-        
+
+        // BUG-002: binary/stream responses (format: binary, type: string) are resolved
+        // by the OpenAPI generator as System.IO.Stream, which must map to FileDto.
+        if ("System.IO.Stream".equals(dtoType) || dtoType.startsWith("System.IO.")) {
+            return "FileDto";
+        }
+
         // Primitive types (int, string, bool, etc.) don't need Dto suffix
         if (isPrimitiveType(dtoType)) {
             return dtoType;
