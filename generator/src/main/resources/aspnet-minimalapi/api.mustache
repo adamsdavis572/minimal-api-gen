@@ -112,7 +112,7 @@ public static class {{{classname}}}Endpoints
             {{^vendorExtensions.x-is-delete-with-bool}}
             if (result == null) return Results.NotFound();
             {{#vendorExtensions.x-is-post-operation}}
-            return Results.Created($"{{basePathWithoutHost}}{{path}}", result);
+            return Results.Created($"{{basePathWithoutHost}}{{{vendorExtensions.cleanPath}}}", result);
             {{/vendorExtensions.x-is-post-operation}}
             {{^vendorExtensions.x-is-post-operation}}
             return Results.Ok(result);

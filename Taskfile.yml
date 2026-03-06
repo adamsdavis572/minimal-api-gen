@@ -7,6 +7,9 @@ vars:
   TEST_OUTPUT_DIR: ./test-output
   PETSTORE_SPEC: ./petstore-tests/petstore.yaml
   TEST_PROJECT: "./petstore-tests/PetstoreApi.Tests/PetstoreApi.Tests.csproj"
+  ALT_SPEC: ./alt-oas-gen/spec/alt-api.yaml
+  ALT_OUTPUT_DIR: ./alt-oas-gen/output
+  ALT_PACKAGE: AlternativeApi
 
 tasks:
   default:
@@ -445,6 +448,84 @@ tasks:
       - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Program.cs || (echo "❌ Program.cs NOT found" && exit 1)
       - test -f {{.DOCKER_TEST_OUTPUT}}/src/PetstoreApi/Commands/AddPetCommand.cs || (echo "❌ MediatR Commands NOT found" && exit 1)
       - echo "✅ All validation checks passed"
+
+  # ==============================================================================
+  # ALT-OAS-GEN - Alternative OAS generation workspace
+  # ==============================================================================
+
+  alt:gen:
+    desc: Generate server code from the alternative OAS spec (alt-oas-gen/spec/alt-api.yaml)
+    deps:
+      - generator:build
+      - generator:download-cli
+    vars:
+      GENERATOR_JAR: "{{.GENERATOR_DIR}}/target/aspnet-minimalapi-openapi-generator.jar"
+      CLI_JAR: "{{.GENERATOR_DIR}}/openapi-generator-cli.jar"
+      ADDITIONAL_PROPS: '{{.ADDITIONAL_PROPS | default "packageName=AlternativeApi,useMediatr=true,useValidators=true,useProblemDetails=true,useNugetPackaging=false"}}'
+    cmds:
+      - echo "Deleting old alt-oas-gen output..."
+      - rm -rf {{.ALT_OUTPUT_DIR}}
+      - echo "Generating AlternativeApi with properties {{.ADDITIONAL_PROPS}}..."
+      - |
+        java -cp "{{.GENERATOR_JAR}}:{{.CLI_JAR}}" \
+          org.openapitools.codegen.OpenAPIGenerator generate \
+          -g aspnetcore-minimalapi \
+          -i {{.ALT_SPEC}} \
+          -o {{.ALT_OUTPUT_DIR}} \
+          --additional-properties {{.ADDITIONAL_PROPS}}
+      - echo "✓ AlternativeApi generated in {{.ALT_OUTPUT_DIR}}"
+
+  alt:copy-impl:
+    desc: Copy handler impls and services from alt-oas-gen/impl/ into the generated output dir
+    vars:
+      IMPL_DIR: ./alt-oas-gen/impl
+      OUT_API_DIR: "{{.ALT_OUTPUT_DIR}}/src/AlternativeApi"
+    cmds:
+      - echo "Copying impl services..."
+      - mkdir -p {{.OUT_API_DIR}}/Services
+      - cp {{.IMPL_DIR}}/Services/*.cs {{.OUT_API_DIR}}/Services/
+      - echo "Copying impl handlers..."
+      - mkdir -p {{.OUT_API_DIR}}/Handlers
+      - cp {{.IMPL_DIR}}/Handlers/*.cs {{.OUT_API_DIR}}/Handlers/
+      - echo "Copying impl extensions..."
+      - cp {{.IMPL_DIR}}/Extensions/ServiceCollectionExtensions.cs {{.OUT_API_DIR}}/Extensions/
+      - echo "Copying impl configurators..."
+      - mkdir -p {{.OUT_API_DIR}}/Configurators
+      - cp {{.IMPL_DIR}}/Configurators/ApplicationServiceConfigurator.cs {{.OUT_API_DIR}}/Configurators/
+      - echo "✓ Impl files copied"
+    preconditions:
+      - sh: test -f {{.ALT_OUTPUT_DIR}}/AlternativeApi.sln
+        msg: "output not found - run 'task alt:gen' first"
+
+  alt:build:
+    desc: Build the generated AlternativeApi solution (copies impl files first)
+    deps:
+      - alt:copy-impl
+    cmds:
+      - echo "Building AlternativeApi solution..."
+      - dotnet build {{.ALT_OUTPUT_DIR}}/ --verbosity minimal
+      - echo "✓ AlternativeApi solution built"
+    preconditions:
+      - sh: test -f {{.ALT_OUTPUT_DIR}}/AlternativeApi.sln
+        msg: "AlternativeApi.sln not found - run 'task alt:gen' first"
+
+  alt:run:
+    desc: Launch the generated AlternativeApi server (foreground)
+    vars:
+      ALT_API_PROJECT: "{{.ALT_OUTPUT_DIR}}/src/AlternativeApi/AlternativeApi.csproj"
+    cmds:
+      - echo "Starting AlternativeApi server..."
+      - dotnet run --project {{.ALT_API_PROJECT}}
+    preconditions:
+      - sh: test -f {{.ALT_OUTPUT_DIR}}/src/AlternativeApi/AlternativeApi.csproj
+        msg: "AlternativeApi.csproj not found - run 'task alt:gen' first"
+
+  alt:clean:
+    desc: Delete generated AlternativeApi output (keeps spec and generator artifacts)
+    cmds:
+      - echo "Cleaning alt-oas-gen output..."
+      - rm -rf {{.ALT_OUTPUT_DIR}}
+      - echo "✓ alt-oas-gen output cleaned"
 
   # ==============================================================================
   # CLEAN - Cleanup Tasks

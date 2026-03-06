@@ -58,7 +58,7 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
 {{#isEnum}}
         // Enum validation
         RuleFor(x => x.{{name}})
-            .Must(value => value == null || Enum.IsDefined(typeof({{classname}}.{{datatypeWithEnum}}), value.Value))
+            .Must(value => Enum.IsDefined(typeof({{#complexType}}{{datatypeWithEnum}}{{/complexType}}{{^complexType}}{{classname}}.{{datatypeWithEnum}}{{/complexType}}), value))
             .WithMessage("{{name}} must be a valid enum value");
 {{/isEnum}}
 {{#isNumeric}}
@@ -99,6 +99,7 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
 {{/maxItems}}
 {{/minItems}}
 {{/isArray}}
+{{^isEnum}}
 {{#complexType}}
 {{^isArray}}
         // Nested object validation
@@ -111,6 +112,7 @@ public class {{classname}}Validator : AbstractValidator<{{classname}}>
         // RuleForEach validation for complex array items will be added in future enhancement
 {{/isArray}}
 {{/complexType}}
+{{/isEnum}}
 {{/vars}}
     }
 }

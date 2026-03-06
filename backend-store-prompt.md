@@ -1,11 +1,13 @@
 I am using the `minimal-api-gen` OpenAPI Generator plugin to generate an ASP.NET Core Minimal API 
-server. The generator has been run against my OpenAPI spec and has produced code in `test-output/`.
+server. The generator has been run against my OpenAPI spec in `alt-oas-gen/spec/` and has produced code in `alt-oas-gen/output`.
 
-I need you to implement the two test-stub files that wire up the in-memory service layer:
+I need you to implement the four implementation files that wire up the in-memory service layer.
+These files live under `alt-oas-gen/impl/` and are copied into the generated output by `task alt:copy-impl`.
+**Do not place them anywhere else.**
 
 ---
 
-### 1. In-memory store: `src/<ProjectName>/Services/InMemory<ResourceName>Store.cs`
+### 1. In-memory store: `alt-oas-gen/impl/Services/InMemory<ResourceName>Store.cs`
 
 Create a thread-safe in-memory implementation of `I<ResourceName>Store` (defined in the same file).
 Model it on this reference implementation for the Petstore API:
@@ -48,7 +50,7 @@ Key rules:
 
 ---
 
-### 2. MediatR handler stubs: `src/<ProjectName>/Handlers/<HandlerFile>.cs`
+### 2. MediatR handler stubs: `alt-oas-gen/impl/Handlers/<HandlerFile>.Impl.cs`
 
 The generator produces one handler partial class per operation, e.g.:
 
@@ -86,7 +88,7 @@ public partial class Add<Resource>CommandHandler
 
 ---
 
-### 3. DI registration: `src/<ProjectName>/Extensions/ServiceCollectionExtensions.cs`
+### 3. DI registration: `alt-oas-gen/impl/Extensions/ServiceCollectionExtensions.cs`
 
 Register the store as a singleton so all handlers share the same in-memory state:
 
@@ -103,16 +105,35 @@ public static class ServiceCollectionExtensions
 
 ---
 
+### 4. Service configurator: `alt-oas-gen/impl/Configurators/ApplicationServiceConfigurator.cs`
+
+Wires the DI extension into the generated configurator pipeline. Copy this pattern exactly:
+
+```csharp
+public class ApplicationServiceConfigurator : IServiceConfigurator
+{
+    public void ConfigureServices(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        services.Add<ProjectName>Services();
+    }
+}
+```
+
+`task alt:copy-impl` will copy this file to `alt-oas-gen/output/src/<ProjectName>/Configurators/`.
+
+---
+
 ### Context you must know
 
 - **Generated model types** are records in `<ProjectName>.Models` namespace — do NOT redefine them
 - **Generated command/query types** are in `<ProjectName>.Commands` / `<ProjectName>.Queries`
-- **Handler partials** are in `test-output/src/<ProjectName>/Handlers/` — check these files first 
+- **Handler partials** are in `alt-oas-gen/output/src/<ProjectName>/Handlers/` — check these files first 
   to see the exact method signatures you need to implement
 - **Namespace root** is `<ProjectName>` throughout
 - **Target framework**: .NET 8, C# 11+, use records, primary constructors, file-scoped namespaces
-- **Do not modify** anything under `test-output/src/<ProjectName>/` directly — those are generated 
-  files. Your implementations go in the stub files listed above.
+- **Do not modify** anything under `alt-oas-gen/output/` directly — those are generated files.
+- **Your implementations go in `alt-oas-gen/impl/`** (Services/, Handlers/, Extensions/, Configurators/).
+  Running `task alt:copy-impl` copies them into the generated output before building.
 
 ---
 
@@ -123,4 +144,4 @@ public static class ServiceCollectionExtensions
 - **Operations needed**: (e.g. Create, GetById, List, Update, Delete, FindByStatus)
 - **OpenAPI spec excerpt**: (paste relevant paths/schemas here)
 - **Generated handler files to implement**: (paste or list the partial class signatures from 
-  `test-output/src/<ProjectName>/Handlers/`)
+  `alt-oas-gen/output/src/<ProjectName>/Handlers/`)
